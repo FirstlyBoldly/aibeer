@@ -188,23 +188,24 @@ fragment float4 beerFragment(RasterData in [[stage_in]],
     }
 
     // ---- foam ----
-    // THICK head with a crisp, lumpy edge — the foam ends abruptly where the
-    // lumps end; no misty fade ("steam"). Sloshing whips up extra foam.
-    // Lattice-noise offsets are integer CELLS per minute (see header) —
-    // seamless at the clock wrap.
-    float fn = vnoise(p * 24.0 + float2(0.0, 18.0 * tm));
-    float lumps = 0.5 * fn + 0.5 * vnoise(p * 9.0 + float2(0.0, 5.0 * tm));
+    // THICK head with a crisp, lumpy edge. Lumps and bubbles are sampled in
+    // SURFACE-ALIGNED coordinates with NO time drift, so the foam is one
+    // piece anchored to the sloshing surface: it tilts, rides the waves and
+    // settles as a whole — no bits generate or fall.
+    float along = dot(p, float2(-surf.y, surf.x));   // position along the surface
+    float across = s - hgt;                          // signed distance, waves excluded
+    float fn = vnoise(float2(along * 24.0, across * 60.0));
+    float lumps = 0.5 * fn + 0.5 * vnoise(float2(along * 9.0, across * 22.0));
     float foamThick = u.foamThick * (0.55 + 0.9 * lumps) * (1.0 + min(u.wobble * 9.0, 0.8)) + abs(wav);
     float topEdge = -foamThick;
     float foamBand = smoothstep(topEdge, topEdge + 0.012, depth) * (1.0 - smoothstep(0.0, 0.012, depth));
     if (u.fill > 0.003) {
-        // Dense white foam: bright matrix with subtle darker bubble dots.
-        float cells = worley(p * 62.0 + float2(0.0, 7.0 * tm));
-        float fine = worley(p * 100.0 + float2(6.0 * tm, 0.0));
+        float cells = worley(float2(along * 62.0, across * 55.0));
+        float fine = worley(float2(along * 100.0, across * 90.0));
         float dots = (1.0 - smoothstep(0.02, 0.30, cells)) * 0.16
                    + (1.0 - smoothstep(0.02, 0.30, fine)) * 0.08;
         float3 foamCol = u.foamColor * (1.0 - dots);
-        foamCol *= 0.96 + 0.04 * vnoise(p * 90.0 + float2(6.0 * tm, 0.0));
+        foamCol *= 0.96 + 0.04 * vnoise(float2(along * 90.0, across * 80.0));
         col = mix(col, foamCol, foamBand);
     }
 
