@@ -38,7 +38,7 @@ jobs:
       - name: Set up Swift (BeerCore tests + style preset dump)
         uses: swift-actions/setup-swift@v2
         with:
-          swift-version: "6.4.3"
+          swift-version: "6.3"
 
       - name: Test BeerCore and dump style presets
         shell: bash   # adds -o pipefail so a failing swift test fails the step
