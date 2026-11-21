@@ -38,10 +38,14 @@ jobs:
       - name: Set up Swift (BeerCore tests + style preset dump)
         uses: swift-actions/setup-swift@v3
         with:
-          # Quoted (YAML float gotcha). Minor-only pins resolve to the .0
-          # patch: "6.3" → 6.3.0. Latest release is 6.4.3 (matches the local
-          # WSL2 toolchain); every 6.x release has Ubuntu 24.04 builds.
+          # Quoted (YAML float gotcha). Latest swift.org release, matches the
+          # local WSL2 toolchain.
           swift-version: "6.4.3"
+          # GitHub-hosted runners lack the Swiftly signing key in their GPG
+          # keyring ("Can't check signature: No public key" → exit 2). The
+          # download is HTTPS from swift.org; this is the action's documented
+          # remedy for this runner class.
+          skip-verify-signature: true
 
       - name: Test BeerCore and dump style presets
         shell: bash   # adds -o pipefail so a failing swift test fails the step
