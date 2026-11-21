@@ -95,5 +95,25 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: app
+
+      # Known race: an artifact uploaded moments ago may not yet be visible
+      # via the API when deploy-pages lists it ("No artifacts named
+      # github-pages were found"). Poll until it is (max ~60 s).
+      - name: Wait for the github-pages artifact to be queryable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 12); do
+            count=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+              --jq '[.artifacts[] | select(.name == "github-pages")] | length' || echo 0)
+            echo "attempt $i: $count artifact(s) named github-pages"
+            if [ "$count" -ge 1 ]; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "github-pages artifact never became visible via the API" >&2
+          exit 1
+
       - id: deployment
         uses: actions/deploy-pages@v4
