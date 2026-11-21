@@ -18,30 +18,15 @@
                -webkit-user-select: none; user-select: none;
                -webkit-tap-highlight-color: transparent; }
   #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  #perm { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 14px;
-          align-items: center; justify-content: center; background: rgba(3,4,8,.72);
-          color: #eee; z-index: 10; cursor: pointer; }
-  #perm h1 { font-size: 22px; font-weight: 600; margin: 0; }
-  #perm p { font-size: 13px; color: rgba(255,255,255,.6); margin: 0; max-width: 260px;
-            text-align: center; line-height: 1.5; }
+  #perm { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+          background: rgba(3,4,8,.72); z-index: 10; cursor: pointer; }
   #perm button { font-size: 16px; padding: 12px 26px; }
   #perm.hidden { display: none; }
-  #toast { position: fixed; top: calc(10px + env(safe-area-inset-top)); left: 0; right: 0;
-           text-align: center; color: rgba(255,255,255,.45); font-size: 12px;
-           pointer-events: none; opacity: 0; transition: opacity .4s; }
-  #toast.show { opacity: 1; }
-  #drink { position: fixed; bottom: calc(14px + env(safe-area-inset-bottom)); left: 0; right: 0;
-           text-align: center; color: rgba(255,255,255,.55); font-size: 13px;
-           letter-spacing: .08em; text-transform: uppercase; pointer-events: none; }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="toast"></div>
-<div id="drink"></div>
 <div id="perm">
-  <h1>aiBeer</h1>
-  <p>Tilt your phone to swish the beer. Swipe left or right to change your drink.</p>
   <button id="enableTilt">Enable tilt</button>
 </div>
 <script>
@@ -56,7 +41,6 @@ const STYLES = __STYLES_JSON__;
 (() => {
   const qs = new URLSearchParams(location.search);
   const perm = document.getElementById("perm");
-  const toast = document.getElementById("toast");
 
   // ---- gyroscope → screen-space world-down (the PWA's gravityProvider) ----
   // deviceorientation (W3C, ZXY order): beta = x tilt, gamma = y tilt.
@@ -89,31 +73,20 @@ const STYLES = __STYLES_JSON__;
     window.addEventListener("deviceorientation", onOrientation, true);
   }
 
-  function showToast(msg) {
-    toast.textContent = msg;
-    toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 2600);
-  }
-
   async function requestGyro() {
     // iOS 13+ requires an explicit user-gesture permission request.
+    // Any failure (denied, no sensors, no data) falls back silently to
+    // drag-to-tilt.
     if (typeof DeviceOrientationEvent !== "undefined"
         && typeof DeviceOrientationEvent.requestPermission === "function") {
       try {
         const res = await DeviceOrientationEvent.requestPermission();
-        if (res !== "granted") {
-          showToast("Tilt disabled — drag the screen to tilt instead");
-          return false;
-        }
+        if (res !== "granted") return false;
       } catch (err) {
-        showToast("Tilt unavailable — drag the screen to tilt instead");
         return false;
       }
     }
-    if (typeof DeviceOrientationEvent === "undefined") {
-      showToast("No motion sensors — drag the screen to tilt instead");
-      return false;
-    }
+    if (typeof DeviceOrientationEvent === "undefined") return false;
     attachGyro();
     // If no events arrive within 1.5 s (desktop browser), fall back to drag.
     const hadEvents = await new Promise(res => {
@@ -125,22 +98,16 @@ const STYLES = __STYLES_JSON__;
         res(got);
       }, 1500);
     });
-    if (!hadEvents) {
-      gyroDir = null;
-      showToast("No motion data — drag the screen to tilt instead");
-      return false;
-    }
-    return true;
+    if (!hadEvents) gyroDir = null;
+    return hadEvents;
   }
 
   const enableBtn = document.getElementById("enableTilt");
   enableBtn.addEventListener("click", async () => {
-    const ok = await requestGyro();
+    await requestGyro();
     perm.classList.add("hidden");
-    if (ok) showToast("Tilt enabled");
   });
 
-  const drinkLabel = document.getElementById("drink");
   const app = createAibeer({
     canvas: document.getElementById("c"),
     fragBody: FRAG_BODY,
@@ -153,13 +120,8 @@ const STYLES = __STYLES_JSON__;
       freeze: !!qs.get("freeze"),
       kick: !!qs.get("kick")
     },
-    gravityProvider: () => gyroDir,
-    onStyleChange: style => {
-      drinkLabel.textContent = style.name;
-      showToast("Swiped to " + style.name);
-    }
+    gravityProvider: () => gyroDir
   });
-  drinkLabel.textContent = app.state.style.name;
   window.__aibeer = app;   // debug/testing hook
 
   // Service worker (production, HTTPS only — skipped for file:// dev).

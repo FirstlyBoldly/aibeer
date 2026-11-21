@@ -114,9 +114,9 @@ preview/index.html?style=blackStout&fill=0.72&deg=35&wobble=0.035&freeze=1&clean
 ```
 
 Params: `style` (lager|brownAle|blackStout|rainbow), `fill` (0–1), `deg`
-(tilt direction degrees), `wobble` + `freeze=1` (pin wave amplitude),
-`kick=1` (start the surface off-level to watch it slosh), `clean=1` (hide UI
-for screenshots).
+(tilt direction degrees), `wobble` + `freeze=1` (pin wave amplitude), `kick=1`
+(start the surface off-level to watch it slosh). The UI has no text at all —
+drag tilts, a horizontal flick changes the drink.
 
 ## Getting it on your iPhone (no Mac needed)
 
@@ -186,6 +186,11 @@ serving.)
 
 ## Building the iOS app (on a Mac)
 
+### Free: run it on your own iPhone (no Apple Developer Program)
+
+Any Apple ID works — no $99 enrollment. Requirements: Xcode (free, Mac App
+Store), your iPhone, a USB cable.
+
 ```sh
 brew install xcodegen
 cd aibeer
@@ -193,20 +198,34 @@ xcodegen generate        # creates aibeer.xcodeproj
 open aibeer.xcodeproj
 ```
 
+1. Target **aibeer** → **Signing & Capabilities** → **Team**: pick your
+   Apple ID (a "Personal Team" — Xcode creates it automatically)
+2. Connect the iPhone by cable, select it in the device dropdown, **Cmd+R**
+3. First run only: on the iPhone, **Settings → General → VPN & Device
+   Management** → tap your Apple ID → **Trust**
+
+This build hides the status bar and home indicator entirely (the PWA can't do
+that on iOS). Catch: free-provisioned apps **expire after 7 days** — plug in
+and Cmd+R again to renew (30 s). Max 3 side-loaded apps per device per week;
+no TestFlight/App Store.
+
+### Paid: TestFlight / App Store
+
+With the $99/yr Apple Developer Program the same project uploads to
+TestFlight or the App Store (signing on CI is also possible).
+
+### Simulator & device notes
+
 - **Simulator:** works fully via the pan-gesture fallback (drag = tilt). The
   simulator has no gyro.
-- **Real iPhone:** set your signing team in Xcode (Signing & Capabilities),
-  plug in the phone, run. Tilt the phone — the beer surface stays level with
-  the world.
+- **Real iPhone:** tilt the phone — the beer surface stays level with the
+  world. (See the free-provisioning steps above for signing.)
 - If your Xcode version wants `GLKVector2` instead of `SIMD2<Float>` in
   `SKUniform(name:vectorFloat2:)` calls, adjust those two call sites in
   `BeerScene.makeShader()` — it's a one-line-per-uniform mechanical change.
 
 ### App Store notes
 
-- Distribution needs an Apple Developer Program membership ($99/yr) for
-  TestFlight/App Store. Free provisioning works for personal-device installs
-  (7-day signing expiry).
 - Naming: "iBeer" is an existing trademark (Hottrix famously sued Coors over
   this exact genre of knockoff). Pick a distinct store name; the repo name is
   fine for personal use.
