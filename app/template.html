@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#05060a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="aiBeer">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/icon-180.png">
+<link rel="icon" href="./icons/icon-192.png">
+<title>aiBeer</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #05060a; overflow: hidden;
+               font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+               -webkit-user-select: none; user-select: none;
+               -webkit-tap-highlight-color: transparent; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #ui { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 8px;
+        align-items: center; justify-content: center; padding: 12px;
+        padding-bottom: max(12px, env(safe-area-inset-bottom)); box-sizing: border-box;
+        flex-wrap: wrap; }
+  button { background: rgba(255,255,255,.08); color: #eee; border: 1px solid rgba(255,255,255,.18);
+           border-radius: 10px; padding: 8px 14px; font-size: 14px; cursor: pointer;
+           backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  button.on { background: rgba(255,200,60,.22); border-color: rgba(255,200,60,.55); }
+  #perm { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 14px;
+          align-items: center; justify-content: center; background: rgba(3,4,8,.72);
+          color: #eee; z-index: 10; cursor: pointer; }
+  #perm h1 { font-size: 22px; font-weight: 600; margin: 0; }
+  #perm p { font-size: 13px; color: rgba(255,255,255,.6); margin: 0; max-width: 260px;
+            text-align: center; line-height: 1.5; }
+  #perm button { font-size: 16px; padding: 12px 26px; }
+  #perm.hidden { display: none; }
+  #toast { position: fixed; top: calc(10px + env(safe-area-inset-top)); left: 0; right: 0;
+           text-align: center; color: rgba(255,255,255,.45); font-size: 12px;
+           pointer-events: none; opacity: 0; transition: opacity .4s; }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="toast"></div>
+<div id="perm">
+  <h1>aiBeer</h1>
+  <p>Hold FILL to pour, DRAIN to empty. Tilt your phone to swish the beer.</p>
+  <button id="enableTilt">Enable tilt &amp; pour</button>
+</div>
+<div id="ui"></div>
+<script>
+"use strict";
+// The placeholders below are filled in by tools/embed.mjs at build time
+// (shader body from shaders/beer-liquid.fsh, style presets from BeerCore,
+// shared runtime from shared/runtime.js).
+__RUNTIME__
+const FRAG_BODY = `__SHADER_BODY__`;
+const STYLES = __STYLES_JSON__;
+
+(() => {
+  const qs = new URLSearchParams(location.search);
+  const perm = document.getElementById("perm");
+  const toast = document.getElementById("toast");
+
+  // ---- gyroscope → screen-space world-down (the PWA's gravityProvider) ----
+  // deviceorientation (W3C, ZXY order): beta = x tilt, gamma = y tilt.
+  // World-down in the device frame: (sin γ·cos β, −sin β, −cos γ·cos β).
+  // We project onto the screen plane and rotate by the UI orientation angle,
+  // mirroring BeerCore's unit-tested GravityProjector.
+  let gyroDir = null;
+  function onOrientation(e) {
+    if (e.beta == null) return;
+    const b = (e.beta || 0) * Math.PI / 180;
+    const g = (e.gamma || 0) * Math.PI / 180;
+    const gx = Math.sin(g) * Math.cos(b);   // device x (right, portrait)
+    const gy = -Math.sin(b);                // device y (top, portrait)
+    const angle = (((screen.orientation && screen.orientation.angle)
+      || window.orientation || 0) % 360 + 360) % 360;
+    let dx, dy;                             // screen coords, y-up
+    switch (angle) {
+      case 90:  dx = -gy;  dy = gx;  break;   // landscapeLeft (home right)
+      case 180: dx = -gx;  dy = -gy; break;   // portrait upside down
+      case 270: dx = gy;   dy = -gx; break;   // landscapeRight (home left)
+      default:  dx = gx;   dy = gy;  break;   // portrait
+    }
+    const len = Math.hypot(dx, dy);
+    // Phone lying flat: degenerate projection → null (runtime holds last).
+    gyroDir = len > 0.05 ? [dx / len, dy / len] : null;
+  }
+
+  function attachGyro() {
+    window.addEventListener("deviceorientation", onOrientation, true);
+  }
+
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 2600);
+  }
+
+  async function requestGyro() {
+    // iOS 13+ requires an explicit user-gesture permission request.
+    if (typeof DeviceOrientationEvent !== "undefined"
+        && typeof DeviceOrientationEvent.requestPermission === "function") {
+      try {
+        const res = await DeviceOrientationEvent.requestPermission();
+        if (res !== "granted") {
+          showToast("Tilt disabled — drag the screen to tilt instead");
+          return false;
+        }
+      } catch (err) {
+        showToast("Tilt unavailable — drag the screen to tilt instead");
+        return false;
+      }
+    }
+    if (typeof DeviceOrientationEvent === "undefined") {
+      showToast("No motion sensors — drag the screen to tilt instead");
+      return false;
+    }
+    attachGyro();
+    // If no events arrive within 1.5 s (desktop browser), fall back to drag.
+    const hadEvents = await new Promise(res => {
+      let got = false;
+      const probe = e => { if (e.beta != null) { got = true; } };
+      window.addEventListener("deviceorientation", probe, true);
+      setTimeout(() => {
+        window.removeEventListener("deviceorientation", probe, true);
+        res(got);
+      }, 1500);
+    });
+    if (!hadEvents) {
+      gyroDir = null;
+      showToast("No motion data — drag the screen to tilt instead");
+      return false;
+    }
+    return true;
+  }
+
+  const enableBtn = document.getElementById("enableTilt");
+  enableBtn.addEventListener("click", async () => {
+    const ok = await requestGyro();
+    perm.classList.add("hidden");
+    if (ok) showToast("Tilt enabled");
+  });
+
+  createAibeer({
+    canvas: document.getElementById("c"),
+    ui: document.getElementById("ui"),
+    fragBody: FRAG_BODY,
+    styles: STYLES,
+    initial: {
+      styleId: qs.get("style"),
+      fill: parseFloat(qs.get("fill")),
+      deg: parseFloat(qs.get("deg")),
+      wobble: parseFloat(qs.get("wobble")),
+      freeze: !!qs.get("freeze"),
+      kick: !!qs.get("kick")
+    },
+    gravityProvider: () => gyroDir
+  });
+
+  // Service worker (production, HTTPS only — skipped for file:// dev).
+  if ("serviceWorker" in navigator
+      && (location.protocol === "https:" || location.hostname === "localhost")) {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>

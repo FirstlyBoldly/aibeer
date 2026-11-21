@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Draws the aiBeer app icon at whatever size the canvas is. Designed as a
+// full-bleed square (iOS rounds the corners itself); the maskable variant is
+// generated separately with a larger safe-zone.
+const size = Math.min(innerWidth, innerHeight);
+const c = document.getElementById("c");
+c.width = size; c.height = size;
+const x = c.getContext("2d");
+
+const maskable = new URLSearchParams(location.search).has("maskable");
+const pad = maskable ? 0.16 * size : 0;    // maskable safe zone: keep art in 80%
+const s = size - 2 * pad;
+
+// Background: near-black with a subtle blue tint and vignette.
+const bg = x.createLinearGradient(0, 0, 0, size);
+bg.addColorStop(0, "#0b0e16");
+bg.addColorStop(1, "#05060a");
+x.fillStyle = bg;
+x.fillRect(0, 0, size, size);
+
+// Glass: rounded rectangle, slightly tapered, centered.
+const gw = 0.46 * s, gh = 0.74 * s;
+const gx = (size - gw) / 2, gy = (size - gh) / 2 + pad;
+const r = 0.06 * s;
+
+function glassPath(inset) {
+  const w = gw - 2 * inset, h = gh - inset * 0.5;
+  const cx = gx + inset, cy = gy + inset * 0.25;
+  x.beginPath();
+  x.moveTo(cx + r, cy);
+  x.lineTo(cx + w - r, cy);
+  x.quadraticCurveTo(cx + w, cy, cx + w, cy + r);
+  x.lineTo(cx + w + inset * 1.4, cy + h - r);       // slight taper outward
+  x.quadraticCurveTo(cx + w + inset * 1.4, cy + h, cx + w + inset * 1.4 - r, cy + h);
+  x.lineTo(cx + r - inset * 1.4 + r, cy + h);
+  x.quadraticCurveTo(cx - inset * 1.4 + r, cy + h, cx - inset * 1.4, cy + h - r);
+  x.lineTo(cx, cy + r);
+  x.quadraticCurveTo(cx, cy, cx + r, cy);
+  x.closePath();
+}
+
+// Beer fill with glow.
+glassPath(0.02 * s);
+const beer = x.createLinearGradient(0, gy + gh * 0.18, 0, gy + gh);
+beer.addColorStop(0, "#F2B233");
+beer.addColorStop(0.55, "#D08A18");
+beer.addColorStop(1, "#8C4E06");
+x.fillStyle = beer;
+x.fill();
+
+// Backlit glow at the bottom of the glass. The icon glass is FULL — no
+// headspace, so no gaps can show through between foam circles.
+x.save();
+glassPath(0.02 * s);
+x.clip();
+const foamY = gy + gh * 0.10;
+const glow = x.createRadialGradient(size / 2, gy + gh * 0.98, 0.02 * s,
+  size / 2, gy + gh * 0.98, 0.42 * s);
+glow.addColorStop(0, "rgba(255,214,120,0.85)");
+glow.addColorStop(1, "rgba(255,214,120,0)");
+x.fillStyle = glow;
+x.fillRect(0, 0, size, size);
+
+// Bubbles.
+x.fillStyle = "rgba(255,244,214,0.75)";
+const bubbles = [[0.42,0.62,0.018],[0.55,0.55,0.014],[0.48,0.48,0.011],[0.60,0.66,0.020],
+  [0.38,0.70,0.012],[0.52,0.74,0.016],[0.44,0.80,0.013],[0.57,0.42,0.010]];
+for (const [bx, by, br] of bubbles) {
+  x.beginPath();
+  x.arc(pad + bx * s, pad + by * s, br * s, 0, Math.PI * 2);
+  x.fill();
+}
+x.restore();
+
+// Foam head: overlapping circles above the fill line, clipped to the glass.
+x.save();
+glassPath(0.02 * s);
+x.clip();
+x.fillStyle = "#F7F2E4";
+for (const [fx, fy, fr] of [[0.30,0.15,0.085],[0.42,0.12,0.10],[0.55,0.145,0.09],
+  [0.68,0.13,0.088],[0.36,0.09,0.07],[0.62,0.085,0.072],[0.49,0.175,0.075]]) {
+  x.beginPath();
+  x.arc(pad + fx * s, pad + fy * s, fr * s, 0, Math.PI * 2);
+  x.fill();
+}
+x.fillRect(gx, foamY - 0.035 * s, gw, 0.06 * s);
+x.restore();
+
+// Glass rim.
+glassPath(0.02 * s);
+x.lineWidth = 0.018 * s;
+x.strokeStyle = "rgba(255,255,255,0.5)";
+x.stroke();
+
+// Highlight streak on the left wall.
+x.save();
+glassPath(0.02 * s);
+x.clip();
+x.fillStyle = "rgba(255,255,255,0.14)";
+x.fillRect(gx + 0.05 * s, gy + 0.08 * s, 0.035 * s, gh * 0.7);
+x.restore();
+</script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+# Builds and deploys the aiBeer PWA to GitHub Pages — from source.
+#
+# The generated web artifacts (app/index.html, app/icons/, styles.json) are
+# gitignored; this workflow regenerates them on every push:
+#   1. Swift toolchain → swift test (BeerCore) → beerctl dump-styles
+#   2. glslangValidator → shader syntax gate (GLSL ES 1.00)
+#   3. Playwright/Chromium → generate the icon set
+#   4. tools/embed.mjs → inline shader + styles + runtime into app/index.html
+#   5. deploy app/ to Pages
+#
+# One-time setup: repo Settings → Pages → Source: "GitHub Actions".
+# Pin swift-version to the same swift.org release you use locally.
+name: build-and-deploy-pwa
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Swift (BeerCore tests + style preset dump)
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.4.3"
+
+      - name: Test BeerCore and dump style presets
+        shell: bash   # adds -o pipefail so a failing swift test fails the step
+        run: |
+          cd BeerCore
+          swift test 2>&1 | grep -E "Test Suite '(BeerCoreTests|All tests)' (passed|failed)"
+          swift run -q beerctl dump-styles > ../preview/styles.json
+
+      - name: Validate shader (GLSL ES 1.00)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q glslang-tools
+          tools/validate-shader.sh
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Cache Playwright Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-1.49.1-chromium
+
+      - name: Generate PWA icons
+        run: |
+          npx --yes playwright@1.49.1 install --with-deps chromium
+          tools/gen-icons.sh
+
+      - name: Build web app (inline shader + styles + runtime)
+        run: node tools/embed.mjs
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,45 @@
+name: aibeer
+options:
+  bundleIdPrefix: dev.aibeer
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+packages:
+  BeerCore:
+    path: ./BeerCore
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1"
+targets:
+  aibeer:
+    type: application
+    platform: iOS
+    sources:
+      - path: aibeer
+      - path: shaders
+        buildPhase: resources
+    dependencies:
+      - package: BeerCore
+    info:
+      path: aibeer/Info.plist
+      properties:
+        CFBundleDisplayName: aiBeer
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UIStatusBarHidden: true
+        UIViewControllerBasedStatusBarAppearance: false
+        UIRequiresFullScreen: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.aibeer.app
+schemes:
+  aibeer:
+    build:
+      targets:
+        aibeer: all
+    run:
+      config: Debug
