@@ -31,8 +31,8 @@ function createAibeer(opts) {
 
   // =====================================================================
   // State — JS ports of BeerCore (GravityFilter implicit via drag smoothing,
-  // SloshModel, WobbleModel). Fill level is fixed at launch (no fill/drain
-  // controls).
+  // SloshModel, WobbleModel, FillController). Tilt past ~33° drains; swipe
+  // up refills.
   // =====================================================================
   const onStyleChange = opts.onStyleChange || null;
   let style = STYLES.find(s => s.id === initial.styleId) || STYLES[0];
@@ -41,6 +41,10 @@ function createAibeer(opts) {
   let manualDir = [Math.sin(deg * Math.PI / 180), -Math.cos(deg * Math.PI / 180)];
   const frozenWobble = initial.freeze ? clamp(num(initial.wobble, 0.02), 0, 0.06) : null;
   let wobble = frozenWobble ?? 0.012;
+  let refilling = false;
+
+  // FillController port.
+  const FILL_RATE = 0.22, DRAIN_RATE = 0.55;
 
   // ---- SloshModel port: spring-damper free surface ----
   const slosh = {
@@ -170,16 +174,20 @@ function createAibeer(opts) {
   });
 
   // A fast, mostly-horizontal flick changes the drink: left = next,
-  // right = previous. Slow drags remain tilt gestures.
+  // right = previous. A fast upward flick refills. Slow drags remain tilt
+  // gestures.
   function detectStyleSwipe(e) {
     const dx = e.clientX - gestureStart.x;
     const dy = e.clientY - gestureStart.y;
     const dt = performance.now() - gestureStart.t;
-    if (dt < 400 && Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy)) {
+    if (dt >= 400) return;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy)) {
       const step = dx < 0 ? 1 : -1;
       const idx = STYLES.findIndex(s => s.id === style.id);
       style = STYLES[(idx + step + STYLES.length) % STYLES.length];
       if (onStyleChange) onStyleChange(style);
+    } else if (dy < -60 && Math.abs(dy) > 2 * Math.abs(dx)) {
+      refilling = true;
     }
   }
 
@@ -206,16 +214,28 @@ function createAibeer(opts) {
   }
   window.addEventListener("resize", resize);
 
-  /// Advances slosh/wobble one frame; returns the shader state.
+  /// Advances slosh/wobble/fill one frame; returns the shader state.
   function advanceState(dt) {
     if (frozenWobble !== null) {
       return { surface: slosh.dir, amplitude: wobble, targetDir: manualDir };
     }
     const live = gravityProvider ? gravityProvider() : null;
-    const targetDir = live ?? manualDir;
+    const targetDir = live ? [live[0], live[1]] : manualDir;
     const surface = sloshUpdate(targetDir, dt);
     const amplitude = Math.max(0.004, wobble * Math.exp(-dt / 0.6), sloshEnergy() * 0.06);
     wobble = amplitude;
+
+    // Tilt-drink: past ~33° from vertical the beer drains, faster the
+    // further the glass is tipped. Swipe up refills.
+    const tilt = live && live.length > 2 ? live[2] : 0;
+    const tiltSeverity = Math.max(0, tilt - 0.55) / 0.45;
+    if (tiltSeverity > 0) {
+      fill = Math.max(0, fill - DRAIN_RATE * (0.4 + 0.6 * Math.min(tiltSeverity, 1)) * dt);
+    }
+    if (refilling) {
+      fill = Math.min(1, fill + FILL_RATE * dt);
+      if (fill >= 0.999) refilling = false;
+    }
     return { surface, amplitude, targetDir };
   }
 

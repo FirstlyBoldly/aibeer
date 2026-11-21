@@ -269,6 +269,39 @@ final class BeerCoreTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(f.level, 0)
     }
 
+    func testPourAndDrainFlowMethods() {
+        var f = FillController(level: 0.5)
+        f.pour(dt: 1.0)
+        XCTAssertEqual(f.level, 0.5 + f.fillRate, accuracy: 1e-9)
+        f.pour(dt: 60.0)   // long pour clamps at full
+        XCTAssertEqual(f.level, 1, accuracy: 1e-9)
+
+        f.drain(dt: 1.0, severity: 1.0)
+        XCTAssertEqual(f.level, 1 - f.drainRate, accuracy: 1e-9)
+        let afterHalfSeverity = f.level
+        f.drain(dt: 1.0, severity: 0.5)
+        XCTAssertEqual(f.level, afterHalfSeverity - f.drainRate * 0.7, accuracy: 1e-9)
+        f.drain(dt: 60.0, severity: 1.0)   // long drain clamps at empty
+        XCTAssertEqual(f.level, 0, accuracy: 1e-9)
+        XCTAssertTrue(f.isEmpty)
+    }
+
+    func testPourAndDrainRespectBounds() {
+        var f = FillController(level: 1)
+        f.drain(dt: 0.5, severity: 0)   // zero severity still drains at base rate
+        XCTAssertLessThan(f.level, 1)
+        f.pour(dt: 0.001)
+        XCTAssertLessThanOrEqual(f.level, 1)
+    }
+
+    func testPourAndDrainRespectBounds2() {
+        var f = FillController(level: 0)
+        f.drain(dt: 1, severity: 1)
+        XCTAssertEqual(f.level, 0, accuracy: 1e-9)  // never below empty
+        f.pour(dt: 10)                              // long pour clamps at full
+        XCTAssertEqual(f.level, 1, accuracy: 1e-9)  // never above full
+    }
+
     // MARK: - BeerStyle
 
     func testFourStylesCompleteAndDistinct() {

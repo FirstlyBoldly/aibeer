@@ -18,6 +18,7 @@ final class BeerEngine {
     private let motionLock = NSLock()
     private var latestMotion: (gravity: GravityVector, rate: SIMD3<Double>)?
     private var syntheticGravity: SIMD2<Double>?
+    private var refilling = false
 
     private var clock: Double = 0
 
@@ -56,6 +57,17 @@ final class BeerEngine {
         let surface = slosh.update(target: smoothed.direction, dt: dt)
         wobble.decay(dt: dt)
         let amplitude = max(wobble.amplitude, slosh.waveEnergy * 0.06)
+
+        // Tilt-drink: past ~33° from vertical the beer drains, faster the
+        // further the glass is tipped. Swipe up refills.
+        let tiltSeverity = max(0, smoothed.tiltOffScreen - 0.55) / 0.45
+        if tiltSeverity > 0 {
+            fillController.drain(dt: dt, severity: min(tiltSeverity, 1))
+        }
+        if refilling {
+            fillController.pour(dt: dt)
+            if fillController.isFilled { refilling = false }
+        }
 
         uniforms.gravity = SIMD2(Float(smoothed.direction.x), Float(smoothed.direction.y))
         uniforms.tilt = SIMD2(Float(surface.x), Float(surface.y))
@@ -123,18 +135,23 @@ final class BeerEngine {
         wobble.add(rotationRate: SIMD3(dir.length * 0.02, 0, 0), dt: 1.0 / 60.0)
     }
 
-    /// Horizontal swipes change the drink (mirrors the web runtime's flick).
+    /// Horizontal swipes change the drink; swipe up refills.
     private func installStyleSwipes(in view: UIView) {
-        for direction in [UISwipeGestureRecognizer.Direction.left, .right] {
+        for direction in [UISwipeGestureRecognizer.Direction.left, .right, .up] {
             let swipe = UISwipeGestureRecognizer(
-                target: self, action: #selector(handleStyleSwipe(_:)))
+                target: self, action: #selector(handleSwipe(_:)))
             swipe.direction = direction
             view.addGestureRecognizer(swipe)
         }
     }
 
-    @objc private func handleStyleSwipe(_ gesture: UISwipeGestureRecognizer) {
-        cycleStyle(forward: gesture.direction == .left)
+    @objc private func handleSwipe(_ gesture: UISwipeGestureRecognizer) {
+        switch gesture.direction {
+        case .left: cycleStyle(forward: true)
+        case .right: cycleStyle(forward: false)
+        case .up: refilling = true
+        default: break
+        }
     }
 
     // MARK: - Uniforms

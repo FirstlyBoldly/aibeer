@@ -28,6 +28,18 @@ public struct FillController: Sendable {
         }
     }
 
+    /// Pours at `fillRate` — used by the swipe-up refill.
+    public mutating func pour(dt: Double) {
+        level = min(1, level + fillRate * max(dt, 0))
+    }
+
+    /// Drains at up to `drainRate`, scaled by `severity` (0...1) — used for
+    /// tilt-drinking: a casual tilt sips, a full drinking tilt gulps.
+    public mutating func drain(dt: Double, severity: Double) {
+        let s = min(max(severity, 0), 1)
+        level = max(0, level - drainRate * (0.4 + 0.6 * s) * max(dt, 0))
+    }
+
     public var isFilled: Bool { level >= 0.999 }
     public var isEmpty: Bool { level <= 0.001 }
 }
