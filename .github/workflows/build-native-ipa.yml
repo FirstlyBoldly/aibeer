@@ -101,18 +101,23 @@ jobs:
         run: |
           xcrun simctl boot "${{ steps.sim.outputs.device }}" 2>/dev/null || true
           xcrun simctl install booted simdd/Build/Products/Debug-iphonesimulator/aibeer.app
-          xcrun simctl launch booted dev.aibeer.app
+          # AIBEER_DEBUG=1: the scene color-codes its lifecycle (red = didMove
+          # only, blue = update() running) and prints live state in a label.
+          SIMCTL_CHILD_AIBEER_DEBUG=1 xcrun simctl launch booted dev.aibeer.app
           sleep 6
           xcrun simctl io booted screenshot sim-shot.png
-
-      - name: Show compile errors (runs only on failure)
-        if: failure()
-        run: |
-          grep -E "error:" simbuild.log | sort -u | head -40 \
-            || echo "no explicit 'error:' lines — see full simbuild.log above"
+          # SpriteKit logs shader compile failures here:
+          xcrun simctl spawn booted log show --last 30s --style compact \
+            --predicate 'processImagePath CONTAINS "aibeer"' > device-log.txt 2>/dev/null || true
 
       - uses: actions/upload-artifact@v4
         with:
           name: sim-screenshot
           path: sim-shot.png
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sim-device-log
+          path: device-log.txt
           retention-days: 14

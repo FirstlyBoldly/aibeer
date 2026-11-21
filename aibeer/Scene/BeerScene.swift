@@ -25,8 +25,20 @@ final class BeerScene: SKScene {
     private var clock: Double = 0
     private var lastUpdate: TimeInterval = 0
 
+    // Launch-argument diagnostics (AIBEER_DEBUG=1): color-codes the scene
+    // per lifecycle stage and prints live state, so a black screen can be
+    // triaged from a single simulator screenshot.
+    //   red  = didMove reached, update() never ran
+    //   blue = update() running (label shows fill/viewport/shader source)
+    private var debugEnabled = false
+    private var debugLabel: SKLabelNode?
+    private var frameCount = 0
+    private var shaderLoadedFromFile = false
+
     override func didMove(to view: SKView) {
-        backgroundColor = SKColor(red: 0.02, green: 0.024, blue: 0.035, alpha: 1)
+        debugEnabled = ProcessInfo.processInfo.environment["AIBEER_DEBUG"] == "1"
+        backgroundColor =
+            debugEnabled ? .red : SKColor(red: 0.02, green: 0.024, blue: 0.035, alpha: 1)
 
         // The scene may be created with size .zero (SwiftUI SpriteView);
         // adopt the view's bounds so the liquid sprite is never 1x1 px.
@@ -38,6 +50,19 @@ final class BeerScene: SKScene {
         liquid.shader = makeShader()
         applyStyleUniforms()
         addChild(liquid)
+
+        if debugEnabled {
+            let label = SKLabelNode(fontNamed: "Menlo-Bold")
+            label.fontSize = 13
+            label.fontColor = .white
+            label.horizontalAlignmentMode = .left
+            label.verticalAlignmentMode = .top
+            label.position = CGPoint(x: 16, y: size.height - 12)
+            label.zPosition = 10
+            label.text = "didMove OK, waiting for update()..."
+            addChild(label)
+            debugLabel = label
+        }
 
         startMotion(in: view)
         installStyleSwipes(in: view)
@@ -87,6 +112,13 @@ final class BeerScene: SKScene {
         let amplitude = max(wobble.amplitude, slosh.waveEnergy * 0.06)
 
         applyFrameUniforms(gravity: smoothed.direction, surface: surface, amplitude: amplitude)
+
+        if debugEnabled {
+            frameCount += 1
+            backgroundColor = SKColor(red: 0.10, green: 0.15, blue: 0.35, alpha: 1)  // stage 2
+            debugLabel?.text =
+                "frame \(frameCount)  fill \(String(format: "%.2f", fillController.level))  px \(Int(pixelSize.x))x\(Int(pixelSize.y))  src \(shaderLoadedFromFile ? "file" : "FALLBACK")"
+        }
     }
 
     /// Latest motion sample → screen-space world-down. Falls back to the pan
@@ -150,8 +182,10 @@ final class BeerScene: SKScene {
         if let url = Bundle.main.url(forResource: "beer-liquid", withExtension: "fsh"),
             let text = try? String(contentsOf: url, encoding: .utf8)
         {
+            shaderLoadedFromFile = true
             return text
         }
+        shaderLoadedFromFile = false
         return Self.fallbackShader
     }
 
@@ -233,10 +267,10 @@ final class BeerScene: SKScene {
         }
     }
 
-    /// Shown only if the shader resource is somehow missing from the bundle;
-    /// keeps the app alive instead of crashing.
+    /// Shown only if the shader resource is somehow missing from the bundle:
+    /// an unmistakable RED screen (diagnostic — black would be ambiguous).
     private static let fallbackShader =
-        "void main() { gl_FragColor = vec4(0.10, 0.06, 0.02, 1.0); }"
+        "void main() { gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); }"
 }
 
 /// Bridges BeerCore's sRGB color model to SpriteKit's float vectors.
