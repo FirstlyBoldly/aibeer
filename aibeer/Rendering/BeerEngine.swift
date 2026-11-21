@@ -18,8 +18,8 @@ final class BeerEngine {
     private let motionLock = NSLock()
     private var latestMotion: (gravity: GravityVector, rate: SIMD3<Double>)?
     private var syntheticGravity: SIMD2<Double>?
-    private var opening = true      // launch: pour from black up to default
-    private var refilling = false   // swipe up: pour back to default
+    private var opening = true  // launch: pour from black up to default
+    private var refilling = false  // swipe up: pour back to default
 
     /// The pour target: half a glass, and only that far.
     private static let defaultLevel = 0.5
