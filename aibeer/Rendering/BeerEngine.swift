@@ -40,6 +40,11 @@ final class BeerEngine {
         installStyleSwipes(in: view)
     }
 
+    /// The renderer reports the drawable size each frame.
+    func setSpriteSize(_ size: SIMD2<Float>) {
+        uniforms.spriteSize = size
+    }
+
     /// Advances the simulation by `dt` seconds and refreshes `uniforms`.
     func advance(dt: Double) {
         // Wrap at 60 s: every shader time multiplier is an integer number of

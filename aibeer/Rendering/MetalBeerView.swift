@@ -1,5 +1,6 @@
 import BeerCore
 import MetalKit
+import QuartzCore
 import SwiftUI
 
 /// Full-screen Metal view rendering the beer liquid shader.
@@ -59,19 +60,20 @@ struct MetalBeerView: UIViewRepresentable {
         }
 
         func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
-            engine.uniforms.spriteSize = SIMD2(Float(size.width), Float(size.height))
+            engine.setSpriteSize(SIMD2(Float(size.width), Float(size.height)))
         }
 
         func draw(in view: MTKView) {
-            let dt =
-                lastTimestamp == 0
-                ? 1.0 / 60.0
-                : min(view.timestamp - lastTimestamp, 0.1)
-            lastTimestamp = view.timestamp
+            // MTKView has no timestamp property; CACurrentMediaTime() is the
+            // monotonic clock for frame deltas.
+            let now = CACurrentMediaTime()
+            let dt = lastTimestamp == 0 ? 1.0 / 60.0 : min(now - lastTimestamp, 0.1)
+            lastTimestamp = now
 
             engine.advance(dt: dt)
-            engine.uniforms.spriteSize = SIMD2(
-                Float(view.drawableSize.width), Float(view.drawableSize.height))
+            engine.setSpriteSize(
+                SIMD2(
+                    Float(view.drawableSize.width), Float(view.drawableSize.height)))
 
             guard
                 let pipeline,
