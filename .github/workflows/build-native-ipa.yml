@@ -33,6 +33,7 @@ jobs:
 
       - name: Build unsigned archive
         run: |
+          set -o pipefail
           xcodebuild \
             -project aibeer.xcodeproj \
             -scheme aibeer \
@@ -41,7 +42,13 @@ jobs:
             -archivePath build/aibeer.xcarchive \
             archive \
             CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGN_IDENTITY=""
+            CODE_SIGN_IDENTITY="" 2>&1 | tee build.log
+
+      - name: Show compile errors (runs only on failure)
+        if: failure()
+        run: |
+          grep -E "error:" build.log | sort -u | head -40 \
+            || echo "no explicit 'error:' lines — see full build.log above"
 
       - name: Package unsigned .ipa
         run: |

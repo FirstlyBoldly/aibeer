@@ -56,8 +56,8 @@ final class BeerScene: SKScene {
         }
     }
 
-    override func didChangeSize() {
-        super.didChangeSize()
+    override func didChangeSize(_ oldSize: CGSize) {
+        super.didChangeSize(oldSize)
         liquid.size = size
     }
 
@@ -105,16 +105,16 @@ final class BeerScene: SKScene {
     private func applyFrameUniforms(
         gravity: SIMD2<Double>, surface: SIMD2<Double>, amplitude: Double
     ) {
-        uniforms["u_gravity"]?.vectorFloat2 = SIMD2(
+        uniforms["u_gravity"]?.vectorFloat2Value = SIMD2(
             Float(gravity.x),
             Float(gravity.y))
-        uniforms["u_tilt"]?.vectorFloat2 = SIMD2(
+        uniforms["u_tilt"]?.vectorFloat2Value = SIMD2(
             Float(surface.x),
             Float(surface.y))
         uniforms["u_fill"]?.floatValue = Float(fillController.level)
         uniforms["u_clock"]?.floatValue = Float(clock)
         uniforms["u_wobble"]?.floatValue = Float(amplitude)
-        uniforms["u_spriteSize"]?.vectorFloat2 = pixelSize
+        uniforms["u_spriteSize"]?.vectorFloat2Value = pixelSize
     }
 
     // MARK: - Controls (called from MainView)
@@ -156,30 +156,30 @@ final class BeerScene: SKScene {
         [
             "u_gravity": SKUniform(name: "u_gravity", vectorFloat2: SIMD2<Float>(0, -1)),
             "u_tilt": SKUniform(name: "u_tilt", vectorFloat2: SIMD2<Float>(0, -1)),
-            "u_fill": SKUniform(name: "u_fill", floatValue: level),
-            "u_clock": SKUniform(name: "u_clock", floatValue: 0),
-            "u_wobble": SKUniform(name: "u_wobble", floatValue: 0),
+            "u_fill": SKUniform(name: "u_fill", float: level),
+            "u_clock": SKUniform(name: "u_clock", float: 0),
+            "u_wobble": SKUniform(name: "u_wobble", float: 0),
             "u_spriteSize": SKUniform(name: "u_spriteSize", vectorFloat2: SIMD2<Float>(1, 1)),
             "u_bodyTop": SKUniform(name: "u_bodyTop", vectorFloat3: SIMD3<Float>(1, 1, 1)),
             "u_bodyDeep": SKUniform(name: "u_bodyDeep", vectorFloat3: SIMD3<Float>(1, 1, 1)),
             "u_glowColor": SKUniform(name: "u_glowColor", vectorFloat3: SIMD3<Float>(1, 1, 1)),
-            "u_glowStrength": SKUniform(name: "u_glowStrength", floatValue: 0.5),
-            "u_translucency": SKUniform(name: "u_translucency", floatValue: 0.7),
+            "u_glowStrength": SKUniform(name: "u_glowStrength", float: 0.5),
+            "u_translucency": SKUniform(name: "u_translucency", float: 0.7),
             "u_foamColor": SKUniform(name: "u_foamColor", vectorFloat3: SIMD3<Float>(1, 1, 1)),
-            "u_foamThick": SKUniform(name: "u_foamThick", floatValue: 0.06),
-            "u_bubbleDensity": SKUniform(name: "u_bubbleDensity", floatValue: 0.5),
-            "u_bubbleSize": SKUniform(name: "u_bubbleSize", floatValue: 0.01),
-            "u_bubbleSpeed": SKUniform(name: "u_bubbleSpeed", floatValue: 0.5),
-            "u_rainbow": SKUniform(name: "u_rainbow", floatValue: 0),
+            "u_foamThick": SKUniform(name: "u_foamThick", float: 0.06),
+            "u_bubbleDensity": SKUniform(name: "u_bubbleDensity", float: 0.5),
+            "u_bubbleSize": SKUniform(name: "u_bubbleSize", float: 0.01),
+            "u_bubbleSpeed": SKUniform(name: "u_bubbleSpeed", float: 0.5),
+            "u_rainbow": SKUniform(name: "u_rainbow", float: 0),
         ]
     }
 
     private func applyStyleUniforms() {
         let s = currentStyle
-        uniforms["u_bodyTop"]?.vectorFloat3 = s.bodyTop.simd3
-        uniforms["u_bodyDeep"]?.vectorFloat3 = s.bodyDeep.simd3
-        uniforms["u_glowColor"]?.vectorFloat3 = s.glowColor.simd3
-        uniforms["u_foamColor"]?.vectorFloat3 = s.foamColor.simd3
+        uniforms["u_bodyTop"]?.vectorFloat3Value = s.bodyTop.simd3
+        uniforms["u_bodyDeep"]?.vectorFloat3Value = s.bodyDeep.simd3
+        uniforms["u_glowColor"]?.vectorFloat3Value = s.glowColor.simd3
+        uniforms["u_foamColor"]?.vectorFloat3Value = s.foamColor.simd3
         uniforms["u_glowStrength"]?.floatValue = Float(s.glowStrength)
         uniforms["u_translucency"]?.floatValue = Float(s.translucency)
         uniforms["u_foamThick"]?.floatValue = Float(s.foamThick)
