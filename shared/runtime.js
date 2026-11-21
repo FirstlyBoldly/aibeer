@@ -254,12 +254,14 @@ function createAibeer(opts) {
 
   const t0 = performance.now();
   let last = t0;
+  let lastTargetDir = manualDir;
   function frame(now) {
     const t = (now - t0) / 1000;
     const dt = Math.min((now - last) / 1000, 0.1);
     last = now;
 
     const state = advanceState(dt);
+    lastTargetDir = state.targetDir;
     // 60 s wrap: all shader harmonics are integer cycles/minute → seamless.
     const t60 = t % 60;
 
@@ -275,6 +277,8 @@ function createAibeer(opts) {
       const s = STYLES.find(x => x.id === id);
       if (s) style = s;
     },
-    get state() { return { fill, target, style, sloshDir: slosh.dir, gravity: slosh.dir }; }
+    get state() {
+      return { fill, target, style, sloshDir: slosh.dir, gravity: lastTargetDir };
+    }
   };
 }

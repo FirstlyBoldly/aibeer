@@ -28,9 +28,21 @@ grep -q "__SHADER_BODY__\|__STYLES_JSON__\|__RUNTIME__" "$ROOT/app/index.html" \
   || echo "  app/index.html placeholders resolved"
 
 step "iOS sources: swiftc -parse"
-find "$ROOT/aibeer" -name '*.swift' -print0 | while IFS= read -r -d '' f; do
-  swiftc -parse "$f" && echo "  parse OK: ${f#"$ROOT"/}"
-done
+# Accumulate status instead of relying on the loop's exit code: inside a
+# pipeline, `swiftc && echo` failures would otherwise be swallowed by set -e.
+parse_status=0
+while IFS= read -r -d '' f; do
+  if swiftc -parse "$f"; then
+    echo "  parse OK: ${f#"$ROOT"/}"
+  else
+    echo "  parse FAILED: ${f#"$ROOT"/}" >&2
+    parse_status=1
+  fi
+done < <(find "$ROOT/aibeer" -name '*.swift' -print0)
+if [ "$parse_status" -ne 0 ]; then
+  echo "  parse gate failed" >&2
+  exit 1
+fi
 
 step "project.yml: YAML check"
 python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1])); print('  yaml OK')" "$ROOT/project.yml"

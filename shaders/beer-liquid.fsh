@@ -13,9 +13,12 @@
 //   • u_tilt    = the liquid SURFACE direction from BeerCore's SloshModel — a
 //     spring-damper oscillator that lags, overshoots and sloshes around level.
 //     Surface geometry uses u_tilt; carbonation uses u_gravity.
-//   • u_clock wraps at 60 s on the CPU and every time multiplier below is an
-//     INTEGER number of cycles per minute, so the wrap is seamless even on
-//     mediump mobile GPUs (no ever-growing sin() arguments).
+//   • u_clock wraps at 60 s on the CPU and the wrap is seamless even on
+//     mediump mobile GPUs (no ever-growing sin() arguments). Two invariants:
+//     — sin()/cos() terms use INTEGER cycles per minute (h(n) helpers).
+//     — lattice-noise offsets (vnoise/worley) use INTEGER CELLS per minute:
+//       those functions are periodic per lattice cell, so e.g. "6.0 * g_tm",
+//       never a 2π-scaled h() — otherwise the pattern jumps at every wrap.
 
 uniform vec2  u_gravity;       // unit direction of world-down on screen
 uniform vec2  u_tilt;          // unit direction of the (sloshing) liquid surface
@@ -180,16 +183,18 @@ void main() {
     // ---- foam ----
     // Sloshing whips up extra foam; the band gets a cellular bubble structure
     // with darker rims, over a fine-grain base.
-    float fn = vnoise(p * 24.0 + vec2(0.0, h(15.0) * 0.2));
+    // Lattice-noise offsets are integer CELLS per minute (see header) — the
+    // drift rate ≈ the old 2π-scaled values, but seamless at the clock wrap.
+    float fn = vnoise(p * 24.0 + vec2(0.0, 18.0 * g_tm));
     float foamThick = u_foamThick * (0.75 + 0.5 * fn) * (1.0 + min(u_wobble * 9.0, 0.8)) + abs(wav);
     float foamBand = smoothstep(-foamThick, -foamThick * 0.35, depth) * (1.0 - smoothstep(0.0, 0.012, depth));
     if (u_fill > 0.003) {
-        // Foam drift uses integer cycles/minute (h(1.0) = 1 cycle/min) so the
-        // 60 s clock wrap never teleports the cellular pattern.
-        float cells = worley(p * 34.0 + vec2(0.0, h(1.0)));
+        // Cellular foam drifts a whole number of cells per minute so the 60 s
+        // clock wrap never teleports the pattern.
+        float cells = worley(p * 34.0 + vec2(0.0, 6.0 * g_tm));
         float bubbleHoles = smoothstep(0.32, 0.62, cells);
         vec3 foamCol = u_foamColor * (0.70 + 0.42 * bubbleHoles);
-        foamCol *= 0.88 + 0.12 * vnoise(p * 70.0 + vec2(h(1.0), 0.0));
+        foamCol *= 0.88 + 0.12 * vnoise(p * 70.0 + vec2(6.0 * g_tm, 0.0));
         col = mix(col, foamCol, foamBand);
     }
 

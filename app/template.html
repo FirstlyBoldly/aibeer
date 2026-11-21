@@ -85,7 +85,8 @@ const STYLES = __STYLES_JSON__;
       default:  dx = gx;   dy = gy;  break;   // portrait
     }
     const len = Math.hypot(dx, dy);
-    // Phone lying flat: degenerate projection → null (runtime holds last).
+    // Phone lying flat: degenerate projection → null (runtime falls back to
+    // its manual tilt direction from drag/arrow keys).
     gyroDir = len > 0.05 ? [dx / len, dy / len] : null;
   }
 
