@@ -12,7 +12,7 @@ public struct FillController: Sendable {
     /// Level change per second while draining.
     public var drainRate: Double = 0.55
 
-    public init(level: Double = 0.55) {
+    public init(level: Double = 0.5) {
         let clamped = min(max(level, 0), 1)
         self.level = clamped
         self.target = clamped

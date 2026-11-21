@@ -12,7 +12,7 @@ shot() { # name style deg
   local name="$1" style="$2" deg="$3"
   # shellcheck disable=SC2086
   $PW screenshot --viewport-size=390,700 --wait-for-timeout=1500 \
-    "file://$ROOT/preview/index.html?style=$style&fill=0.72&deg=$deg&wobble=0.035&freeze=1" \
+    "file://$ROOT/preview/index.html?style=$style&fill=0.5&deg=$deg&wobble=0.035&freeze=1" \
     "$OUT/$name.png" > /dev/null
   echo "  $OUT/$name.png"
 }

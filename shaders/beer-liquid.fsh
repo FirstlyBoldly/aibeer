@@ -181,20 +181,21 @@ void main() {
     }
 
     // ---- foam ----
-    // Sloshing whips up extra foam; the band gets a cellular bubble structure
-    // with darker rims, over a fine-grain base.
-    // Lattice-noise offsets are integer CELLS per minute (see header) — the
-    // drift rate ≈ the old 2π-scaled values, but seamless at the clock wrap.
+    // Sloshing whips up extra foam; the band edge is chunky and irregular.
+    // Lattice-noise offsets are integer CELLS per minute (see header) —
+    // seamless at the clock wrap.
     float fn = vnoise(p * 24.0 + vec2(0.0, 18.0 * g_tm));
-    float foamThick = u_foamThick * (0.75 + 0.5 * fn) * (1.0 + min(u_wobble * 9.0, 0.8)) + abs(wav);
+    float foamThick = u_foamThick * (0.70 + 0.6 * fn) * (1.0 + min(u_wobble * 9.0, 0.8)) + abs(wav);
     float foamBand = smoothstep(-foamThick, -foamThick * 0.35, depth) * (1.0 - smoothstep(0.0, 0.012, depth));
     if (u_fill > 0.003) {
-        // Cellular foam drifts a whole number of cells per minute so the 60 s
-        // clock wrap never teleports the pattern.
-        float cells = worley(p * 34.0 + vec2(0.0, 6.0 * g_tm));
-        float bubbleHoles = smoothstep(0.32, 0.62, cells);
-        vec3 foamCol = u_foamColor * (0.70 + 0.42 * bubbleHoles);
-        foamCol *= 0.88 + 0.12 * vnoise(p * 70.0 + vec2(6.0 * g_tm, 0.0));
+        // Dense white foam: a bright matrix with subtle darker bubble dots.
+        // Drift in whole cells per minute (seamless at wrap).
+        float cells = worley(p * 62.0 + vec2(0.0, 7.0 * g_tm));
+        float fine = worley(p * 100.0 + vec2(6.0 * g_tm, 0.0));
+        float dots = (1.0 - smoothstep(0.02, 0.30, cells)) * 0.16
+                   + (1.0 - smoothstep(0.02, 0.30, fine)) * 0.08;
+        vec3 foamCol = u_foamColor * (1.0 - dots);
+        foamCol *= 0.96 + 0.04 * vnoise(p * 90.0 + vec2(6.0 * g_tm, 0.0));
         col = mix(col, foamCol, foamBand);
     }
 

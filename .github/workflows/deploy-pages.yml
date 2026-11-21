@@ -38,8 +38,6 @@ jobs:
       - name: Set up Swift (BeerCore tests + style preset dump)
         uses: swift-actions/setup-swift@v3
         with:
-          # Quoted (YAML float gotcha). Latest swift.org release, matches the
-          # local WSL2 toolchain.
           swift-version: "6.4.3"
           # GitHub-hosted runners lack the Swiftly signing key in their GPG
           # keyring ("Can't check signature: No public key" → exit 2). The

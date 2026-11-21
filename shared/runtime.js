@@ -36,7 +36,7 @@ function createAibeer(opts) {
   // =====================================================================
   const onStyleChange = opts.onStyleChange || null;
   let style = STYLES.find(s => s.id === initial.styleId) || STYLES[0];
-  let fill = clamp(num(initial.fill, 0.7), 0, 1);
+  let fill = clamp(num(initial.fill, 0.5), 0, 1);
   const deg = num(initial.deg, 0);
   let manualDir = [Math.sin(deg * Math.PI / 180), -Math.cos(deg * Math.PI / 180)];
   const frozenWobble = initial.freeze ? clamp(num(initial.wobble, 0.02), 0, 0.06) : null;

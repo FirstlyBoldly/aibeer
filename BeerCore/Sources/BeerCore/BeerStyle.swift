@@ -71,7 +71,7 @@ public struct BeerStyle: Equatable, Codable, Sendable {
         id: "lager", name: "Pale Lager",
         bodyTop: RGB(0.973, 0.776, 0.188), bodyDeep: RGB(0.706, 0.463, 0.039),
         glowColor: RGB(1.000, 0.850, 0.400), glowStrength: 0.55, translucency: 0.85,
-        foamColor: RGB(0.990, 0.980, 0.940), foamThick: 0.06,
+        foamColor: RGB(0.990, 0.980, 0.940), foamThick: 0.22,
         bubbleDensity: 0.50, bubbleSize: 0.010, bubbleSpeed: 0.55,
         rainbow: false)
 
@@ -79,7 +79,7 @@ public struct BeerStyle: Equatable, Codable, Sendable {
         id: "brownAle", name: "Brown Ale",
         bodyTop: RGB(0.647, 0.388, 0.122), bodyDeep: RGB(0.290, 0.141, 0.031),
         glowColor: RGB(0.900, 0.620, 0.250), glowStrength: 0.35, translucency: 0.55,
-        foamColor: RGB(0.960, 0.920, 0.820), foamThick: 0.05,
+        foamColor: RGB(0.960, 0.920, 0.820), foamThick: 0.19,
         bubbleDensity: 0.30, bubbleSize: 0.008, bubbleSpeed: 0.40,
         rainbow: false)
 
@@ -87,7 +87,7 @@ public struct BeerStyle: Equatable, Codable, Sendable {
         id: "blackStout", name: "Black Stout",
         bodyTop: RGB(0.180, 0.100, 0.040), bodyDeep: RGB(0.047, 0.020, 0.012),
         glowColor: RGB(0.600, 0.400, 0.180), glowStrength: 0.15, translucency: 0.25,
-        foamColor: RGB(0.900, 0.800, 0.620), foamThick: 0.07,
+        foamColor: RGB(0.900, 0.800, 0.620), foamThick: 0.26,
         bubbleDensity: 0.18, bubbleSize: 0.005, bubbleSpeed: 0.25,
         rainbow: false)
 
@@ -95,7 +95,7 @@ public struct BeerStyle: Equatable, Codable, Sendable {
         id: "rainbow", name: "Rainbow",
         bodyTop: RGB(0.800, 0.200, 0.600), bodyDeep: RGB(0.100, 0.200, 0.800),
         glowColor: RGB(1.000, 1.000, 1.000), glowStrength: 0.40, translucency: 0.70,
-        foamColor: RGB(0.980, 0.960, 1.000), foamThick: 0.06,
+        foamColor: RGB(0.980, 0.960, 1.000), foamThick: 0.21,
         bubbleDensity: 0.60, bubbleSize: 0.011, bubbleSpeed: 0.70,
         rainbow: true)
 }
