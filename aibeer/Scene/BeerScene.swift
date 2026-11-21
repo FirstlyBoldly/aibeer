@@ -25,12 +25,11 @@ final class BeerScene: SKScene {
     private var clock: Double = 0
     private var lastUpdate: TimeInterval = 0
 
-    // Launch-argument diagnostics (AIBEER_DEBUG=1): color-codes the scene
-    // per lifecycle stage and prints live state, so a black screen can be
-    // triaged from a single simulator screenshot.
+    // TEMPORARY (black-screen debugging): always-on lifecycle overlay.
     //   red  = didMove reached, update() never ran
     //   blue = update() running (label shows fill/viewport/shader source)
-    private var debugEnabled = false
+    // Remove once rendering is confirmed on device.
+    private var debugEnabled = true
     private var debugLabel: SKLabelNode?
     private var frameCount = 0
     private var shaderLoadedFromFile = false
@@ -59,7 +58,8 @@ final class BeerScene: SKScene {
             label.verticalAlignmentMode = .top
             label.position = CGPoint(x: 16, y: size.height - 12)
             label.zPosition = 10
-            label.text = "didMove OK, waiting for update()..."
+            label.text =
+                "didMove OK, waiting for update()...  src \(shaderLoadedFromFile ? "file" : "FALLBACK")"
             addChild(label)
             debugLabel = label
         }
