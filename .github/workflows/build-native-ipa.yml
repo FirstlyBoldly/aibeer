@@ -59,9 +59,16 @@ jobs:
 
       - name: Verify archive contents
         run: |
-          test -d build/aibeer.xcarchive/Products/Applications/aibeer.app
-          test -f build/aibeer.xcarchive/Products/Applications/aibeer.app/beer-liquid.fsh
-          unzip -l build/aibeer-unsigned.ipa | grep "Payload/aibeer.app/aibeer"
+          # Metal app: the binary plus default.metallib (beer.metal compiled
+          # at build time). The GLSL beer-liquid.fsh is web-only now and is
+          # intentionally NOT bundled.
+          APP=build/aibeer.xcarchive/Products/Applications/aibeer.app
+          test -f "$APP/aibeer"
+          test -f "$APP/default.metallib"
+          grep -q beerFragment "$APP/default.metallib"
+          echo "app bundle contents:"
+          ls -la "$APP"
+          unzip -l build/aibeer-unsigned.ipa | grep -E "Payload/aibeer\.app/(aibeer|default\.metallib)"
 
       - uses: actions/upload-artifact@v4
         with:
