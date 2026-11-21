@@ -1,14 +1,12 @@
 // shared/runtime.js — the aibeer web runtime, inlined by tools/embed.mjs into
 // BOTH the dev preview (preview/index.html) and the installable PWA
 // (app/index.html). Single source of truth for the JS ports of BeerCore
-// (SloshModel / WobbleModel / FillController), WebGL setup, input handling and
-// the render loop.
+// (SloshModel / WobbleModel), WebGL setup, input handling and the render loop.
 //
 // Host pages define FRAG_BODY and STYLES, then call:
 //
 //   const app = createAibeer({
 //     canvas,            // <canvas> element
-//     ui,                // element for FILL/DRAIN/style buttons, or null
 //     fragBody,          // GLSL ES 1.00 shader body string
 //     styles,            // array from BeerCore (styles.json)
 //     initial: {         // optional initial state (URL params in hosts)
@@ -16,12 +14,14 @@
 //     },
 //     gravityProvider,   // optional () => [x, y] | null (PWA gyro module).
 //                        // Null result = no live tilt → drag/keys take over.
+//     onStyleChange,     // optional (style) => void — fired on drink swipes
 //   });
+//
+// Gestures: drag = tilt, fast horizontal flick = next/previous drink.
 
 function createAibeer(opts) {
   "use strict";
   const canvas = opts.canvas;
-  const ui = opts.ui || null;
   const gravityProvider = opts.gravityProvider || null;
   const STYLES = opts.styles;
   const initial = opts.initial || {};
@@ -31,18 +31,16 @@ function createAibeer(opts) {
 
   // =====================================================================
   // State — JS ports of BeerCore (GravityFilter implicit via drag smoothing,
-  // SloshModel, WobbleModel, FillController).
+  // SloshModel, WobbleModel). Fill level is fixed at launch (no fill/drain
+  // controls).
   // =====================================================================
+  const onStyleChange = opts.onStyleChange || null;
   let style = STYLES.find(s => s.id === initial.styleId) || STYLES[0];
   let fill = clamp(num(initial.fill, 0.7), 0, 1);
-  let target = fill;
   const deg = num(initial.deg, 0);
   let manualDir = [Math.sin(deg * Math.PI / 180), -Math.cos(deg * Math.PI / 180)];
   const frozenWobble = initial.freeze ? clamp(num(initial.wobble, 0.02), 0, 0.06) : null;
   let wobble = frozenWobble ?? 0.012;
-
-  // FillController port.
-  const FILL_RATE = 0.22, DRAIN_RATE = 0.55;
 
   // ---- SloshModel port: spring-damper free surface ----
   const slosh = {
@@ -136,12 +134,12 @@ function createAibeer(opts) {
   for (const n of UNIFORM_NAMES) U[n] = gl.getUniformLocation(prog, n);
 
   // =====================================================================
-  // Input — drag sets manual tilt (when no live gravity), arrows/keys, and
-  // hold-button state. Manual tilt only applies when no live gravity
-  // provider is driving.
+  // Input — drag sets manual tilt (when no live gravity), a fast horizontal
+  // flick switches the drink, and arrows/keys adjust tilt. Manual tilt only
+  // applies when no live gravity provider is driving.
   // =====================================================================
   let dragging = false, lastX = 0, lastY = 0;
-  let held = 0; // -1 drain, +1 fill, while a hold button is pressed
+  let gestureStart = null; // { x, y, t } for swipe detection
 
   function gravityActive() {
     return !!(gravityProvider && gravityProvider());
@@ -149,9 +147,17 @@ function createAibeer(opts) {
 
   canvas.addEventListener("pointerdown", e => {
     dragging = true; lastX = e.clientX; lastY = e.clientY;
+    gestureStart = { x: e.clientX, y: e.clientY, t: performance.now() };
   });
-  window.addEventListener("pointerup", () => { dragging = false; held = 0; });
-  window.addEventListener("pointercancel", () => { dragging = false; held = 0; });
+  window.addEventListener("pointerup", e => {
+    dragging = false;
+    if (gestureStart) detectStyleSwipe(e);
+    gestureStart = null;
+  });
+  window.addEventListener("pointercancel", () => {
+    dragging = false;
+    gestureStart = null;
+  });
   window.addEventListener("pointermove", e => {
     if (!dragging) return;
     const dx = e.clientX - lastX, dy = e.clientY - lastY;
@@ -163,6 +169,20 @@ function createAibeer(opts) {
     wobble = clamp(wobble + Math.hypot(dx, dy) * 0.0006, 0, 0.06);
   });
 
+  // A fast, mostly-horizontal flick changes the drink: left = next,
+  // right = previous. Slow drags remain tilt gestures.
+  function detectStyleSwipe(e) {
+    const dx = e.clientX - gestureStart.x;
+    const dy = e.clientY - gestureStart.y;
+    const dt = performance.now() - gestureStart.t;
+    if (dt < 400 && Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy)) {
+      const step = dx < 0 ? 1 : -1;
+      const idx = STYLES.findIndex(s => s.id === style.id);
+      style = STYLES[(idx + step + STYLES.length) % STYLES.length];
+      if (onStyleChange) onStyleChange(style);
+    }
+  }
+
   function norm(x, y) { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; }
   window.addEventListener("keydown", e => {
     const step = 0.12;
@@ -170,35 +190,7 @@ function createAibeer(opts) {
     if (e.key === "ArrowRight") manualDir = norm(manualDir[0] + step, manualDir[1]);
     if (e.key === "ArrowUp")    manualDir = norm(manualDir[0], manualDir[1] + step);
     if (e.key === "ArrowDown")  manualDir = norm(manualDir[0], manualDir[1] - step);
-    if (e.key === "+" || e.key === "=") target = clamp(target + 0.1, 0, 1);
-    if (e.key === "-" || e.key === "_") target = clamp(target - 0.1, 0, 1);
   });
-
-  // =====================================================================
-  // UI buttons (optional)
-  // =====================================================================
-  if (ui) {
-    function holdButton(label, dir) {
-      const b = document.createElement("button");
-      b.textContent = label;
-      b.addEventListener("pointerdown", e => { e.preventDefault(); held = dir; });
-      ui.appendChild(b);
-    }
-    holdButton("FILL", 1);
-    holdButton("DRAIN", -1);
-    for (const s of STYLES) {
-      const b = document.createElement("button");
-      b.textContent = s.name;
-      if (s === style) b.classList.add("on");
-      b.classList.add("style");
-      b.addEventListener("click", () => {
-        style = s;
-        for (const el of ui.querySelectorAll("button.style")) el.classList.remove("on");
-        b.classList.add("on");
-      });
-      ui.appendChild(b);
-    }
-  }
 
   // =====================================================================
   // Render loop
@@ -214,13 +206,8 @@ function createAibeer(opts) {
   }
   window.addEventListener("resize", resize);
 
-  /// Advances fill/slosh/wobble one frame; returns the shader state.
+  /// Advances slosh/wobble one frame; returns the shader state.
   function advanceState(dt) {
-    if (held > 0) target = clamp(target + dt * 0.5, 0, 1);
-    if (held < 0) target = clamp(target - dt * 0.8, 0, 1);
-    if (target > fill) fill = Math.min(target, fill + FILL_RATE * dt);
-    else if (target < fill) fill = Math.max(target, fill - DRAIN_RATE * dt);
-
     if (frozenWobble !== null) {
       return { surface: slosh.dir, amplitude: wobble, targetDir: manualDir };
     }
@@ -275,10 +262,13 @@ function createAibeer(opts) {
   return {
     setStyleById(id) {
       const s = STYLES.find(x => x.id === id);
-      if (s) style = s;
+      if (s) {
+        style = s;
+        if (onStyleChange) onStyleChange(style);
+      }
     },
     get state() {
-      return { fill, target, style, sloshDir: slosh.dir, gravity: lastTargetDir };
+      return { fill, style, sloshDir: slosh.dir, gravity: lastTargetDir };
     }
   };
 }

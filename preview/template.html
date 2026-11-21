@@ -8,21 +8,18 @@
   html, body { margin: 0; height: 100%; background: #05060a; overflow: hidden;
                font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
   #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  #ui { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 8px;
-        align-items: center; justify-content: center; padding: 12px; box-sizing: border-box;
-        flex-wrap: wrap; }
-  button { background: rgba(255,255,255,.08); color: #eee; border: 1px solid rgba(255,255,255,.18);
-           border-radius: 10px; padding: 8px 14px; font-size: 14px; cursor: pointer; }
-  button.on { background: rgba(255,200,60,.22); border-color: rgba(255,200,60,.55); }
   #hint { position: fixed; top: 10px; left: 0; right: 0; text-align: center;
           color: rgba(255,255,255,.4); font-size: 12px; pointer-events: none; }
-  body.clean #ui, body.clean #hint { display: none; }
+  body.clean #hint, body.clean #drink { display: none; }
+  #drink { position: fixed; bottom: 14px; left: 0; right: 0; text-align: center;
+           color: rgba(255,255,255,.55); font-size: 13px; letter-spacing: .08em;
+           text-transform: uppercase; pointer-events: none; }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="hint">drag to tilt &middot; hold FILL / DRAIN &middot; keys: arrows tilt, + / &minus; fill</div>
-<div id="ui"></div>
+<div id="hint">drag to tilt &middot; swipe left / right to change drink &middot; keys: arrows tilt</div>
+<div id="drink"></div>
 <script>
 "use strict";
 // The placeholders below are filled in by tools/embed.mjs at build time
@@ -36,9 +33,9 @@ const STYLES = __STYLES_JSON__;
   const qs = new URLSearchParams(location.search);
   if (qs.get("clean")) document.body.classList.add("clean");
 
-  createAibeer({
+  const drinkLabel = document.getElementById("drink");
+  window.__aibeer = createAibeer({
     canvas: document.getElementById("c"),
-    ui: document.getElementById("ui"),
     fragBody: FRAG_BODY,
     styles: STYLES,
     initial: {
@@ -48,8 +45,10 @@ const STYLES = __STYLES_JSON__;
       wobble: parseFloat(qs.get("wobble")),
       freeze: !!qs.get("freeze"),
       kick: !!qs.get("kick")
-    }
+    },
+    onStyleChange: style => { drinkLabel.textContent = style.name; }
   });
+  drinkLabel.textContent = window.__aibeer.state.style.name;
 })();
 </script>
 </body>

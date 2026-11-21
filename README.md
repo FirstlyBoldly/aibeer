@@ -2,8 +2,8 @@
 
 An iBeer-style beer-drinking trick for the iPhone: the screen fills with beer,
 and the gyroscope makes the liquid stay level with the real world as you tilt
-the phone. Hold FILL to pour, DRAIN to empty. Four modes: Pale Lager, Brown
-Ale, Black Stout, and a just-for-fun Rainbow.
+the phone. Swipe left or right to change your drink. Four modes: Pale Lager,
+Brown Ale, Black Stout, and a just-for-fun Rainbow.
 
 Native iOS app: **Swift + SwiftUI + SpriteKit (`SKShader`) + CoreMotion**, with
 the liquid rendered by a single GLSL ES fragment shader. The simulation logic
@@ -106,8 +106,8 @@ and `preview/index.html` so the shader and presets stay in sync everywhere.
 ## Browser preview (no Mac needed)
 
 Open `preview/index.html` in any browser (double-click works — everything is
-inlined). Drag to tilt, hold FILL / DRAIN, arrow keys tilt, `+`/`-` fill, or
-use URL params:
+inlined). Drag to tilt, swipe left / right to change drink, arrow keys tilt,
+or use URL params:
 
 ```
 preview/index.html?style=blackStout&fill=0.72&deg=35&wobble=0.035&freeze=1&clean=1

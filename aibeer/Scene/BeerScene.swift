@@ -35,6 +35,7 @@ final class BeerScene: SKScene {
         addChild(liquid)
 
         startMotion(in: view)
+        installStyleSwipes(in: view)
     }
 
     /// Starts live gyro sampling, or the drag fallback when sensors are
@@ -78,7 +79,6 @@ final class BeerScene: SKScene {
         let smoothed = gravityFilter.update(screenGravity, dt: dt)
         let surface = slosh.update(target: smoothed.direction, dt: dt)
         wobble.decay(dt: dt)
-        fillController.advance(dt: dt)
         let amplitude = max(wobble.amplitude, slosh.waveEnergy * 0.06)
 
         applyFrameUniforms(gravity: smoothed.direction, surface: surface, amplitude: amplitude)
@@ -124,10 +124,12 @@ final class BeerScene: SKScene {
         applyStyleUniforms()
     }
 
-    /// While `pouring` is true the target is held at `level`; releasing stops
-    /// at the current level.
-    func hold(pouring: Bool, to level: Double) {
-        fillController.target = pouring ? level : fillController.level
+    /// Swipe left = next drink, right = previous (wraps around).
+    func cycleStyle(forward: Bool) {
+        let all = BeerStyle.all
+        let idx = all.firstIndex(of: currentStyle) ?? 0
+        let next = forward ? (idx + 1) % all.count : (idx + all.count - 1) % all.count
+        select(all[next])
     }
 
     // MARK: - Setup
@@ -190,6 +192,20 @@ final class BeerScene: SKScene {
     private func installPanFallback(in view: SKView) {
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
         view.addGestureRecognizer(pan)
+    }
+
+    /// Horizontal swipes change the drink (mirrors the web runtime's flick).
+    private func installStyleSwipes(in view: SKView) {
+        for direction in [UISwipeGestureRecognizer.Direction.left, .right] {
+            let swipe = UISwipeGestureRecognizer(
+                target: self, action: #selector(handleStyleSwipe(_:)))
+            swipe.direction = direction
+            view.addGestureRecognizer(swipe)
+        }
+    }
+
+    @objc private func handleStyleSwipe(_ gesture: UISwipeGestureRecognizer) {
+        cycleStyle(forward: gesture.direction == .left)
     }
 
     @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
