@@ -9,8 +9,8 @@ public struct FillController: Sendable {
     public var target: Double
     /// Level change per second while filling (~4.5 s for a full pour).
     public var fillRate: Double = 0.22
-    /// Level change per second while draining.
-    public var drainRate: Double = 0.55
+    /// Level change per second while draining (a full glass takes ~5 s).
+    public var drainRate: Double = 0.2
 
     public init(level: Double = 0.5) {
         let clamped = min(max(level, 0), 1)
@@ -28,9 +28,12 @@ public struct FillController: Sendable {
         }
     }
 
-    /// Pours at `fillRate` — used by the swipe-up refill.
-    public mutating func pour(dt: Double) {
-        level = min(1, level + fillRate * max(dt, 0))
+    /// Pours at `fillRate`, never rising above `ceiling` and never lowering
+    /// the level — used by the opening pour and the swipe-up refill (both
+    /// stop at the default half-glass level).
+    public mutating func pour(dt: Double, ceiling: Double = 1.0) {
+        let raised = level + fillRate * max(dt, 0)
+        level = max(level, min(max(ceiling, 0), raised))
     }
 
     /// Drains at up to `drainRate`, scaled by `severity` (0...1) — used for

@@ -243,16 +243,28 @@ final class BeerCoreTests: XCTestCase {
         XCTAssertTrue(f.isEmpty)
     }
 
-    func testDrainRateIsFasterThanFillRate() {
+    func testDrainSlowerThanFill() {
+        // The drain is deliberately unhurried: a full glass takes ~5 s.
+        XCTAssertLessThan(FillController().drainRate, FillController().fillRate)
         var fill = FillController(level: 0)
         fill.target = 1
         fill.advance(dt: 1)
+        XCTAssertEqual(fill.level, fill.fillRate, accuracy: 1e-9)
         var drain = FillController(level: 1)
         drain.target = 0
         drain.advance(dt: 1)
-        XCTAssertEqual(fill.level, fill.fillRate, accuracy: 1e-9)
         XCTAssertEqual(drain.level, 1 - drain.drainRate, accuracy: 1e-9)
-        XCTAssertGreaterThan(drain.drainRate, fill.fillRate)
+    }
+
+    func testPourRespectsCeilingAndNeverLowers() {
+        var f = FillController(level: 0)
+        f.pour(dt: 10, ceiling: 0.5)               // long pour stops at ceiling
+        XCTAssertEqual(f.level, 0.5, accuracy: 1e-9)
+        f.pour(dt: 10, ceiling: 0.5)
+        XCTAssertEqual(f.level, 0.5, accuracy: 1e-9)
+        var high = FillController(level: 0.8)
+        high.pour(dt: 1, ceiling: 0.5)             // pour never lowers the level
+        XCTAssertEqual(high.level, 0.8, accuracy: 1e-9)
     }
 
     func testOutOfRangeTargetIsClamped() {

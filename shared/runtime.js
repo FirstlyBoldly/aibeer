@@ -31,20 +31,23 @@ function createAibeer(opts) {
 
   // =====================================================================
   // State — JS ports of BeerCore (GravityFilter implicit via drag smoothing,
-  // SloshModel, WobbleModel, FillController). Tilt past ~33° drains; swipe
-  // up refills.
+  // SloshModel, WobbleModel, FillController). Launches black and pours up to
+  // the default half-glass level; tilt past ~30° drains (slowly); swipe up
+  // refills to the default level.
   // =====================================================================
   const onStyleChange = opts.onStyleChange || null;
+  const DEFAULT_LEVEL = 0.5;
   let style = STYLES.find(s => s.id === initial.styleId) || STYLES[0];
-  let fill = clamp(num(initial.fill, 0.5), 0, 1);
+  let fill = clamp(num(initial.fill, 0.0), 0, 1);
+  let opening = fill < DEFAULT_LEVEL;      // launch: pour from black
+  let refilling = false;
   const deg = num(initial.deg, 0);
   let manualDir = [Math.sin(deg * Math.PI / 180), -Math.cos(deg * Math.PI / 180)];
   const frozenWobble = initial.freeze ? clamp(num(initial.wobble, 0.02), 0, 0.06) : null;
   let wobble = frozenWobble ?? 0.012;
-  let refilling = false;
 
   // FillController port.
-  const FILL_RATE = 0.22, DRAIN_RATE = 0.55;
+  const FILL_RATE = 0.22, DRAIN_RATE = 0.2;
 
   // ---- SloshModel port: spring-damper free surface ----
   const slosh = {
@@ -226,17 +229,20 @@ function createAibeer(opts) {
     wobble = amplitude;
 
     // Tilt-drink: rolling the glass left/right past ~30° drains it — the
-    // further sideways, the faster. Pitch (push/pull) does nothing; swipe
-    // up refills. Tilting also cancels an in-progress pour (you tipped the
-    // glass while the tap was running).
+    // further sideways, the faster. Pitch (push/pull) does nothing.
+    // Tilting also cancels any pour. The opening pour and the swipe-up
+    // refill both stop at the default half-glass level.
     const rollSeverity = Math.max(0, Math.abs(targetDir[0]) - 0.5) / 0.5;
     if (rollSeverity > 0) {
       fill = Math.max(0, fill - DRAIN_RATE * (0.4 + 0.6 * Math.min(rollSeverity, 1)) * dt);
       refilling = false;
-    }
-    if (refilling) {
-      fill = Math.min(1, fill + FILL_RATE * dt);
-      if (fill >= 0.999) refilling = false;
+      opening = false;
+    } else if (opening) {
+      fill = Math.min(DEFAULT_LEVEL, fill + FILL_RATE * dt);
+      if (fill >= DEFAULT_LEVEL) opening = false;
+    } else if (refilling) {
+      fill = Math.min(DEFAULT_LEVEL, fill + FILL_RATE * dt);
+      if (fill >= DEFAULT_LEVEL) refilling = false;
     }
     return { surface, amplitude, targetDir };
   }

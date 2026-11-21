@@ -9,7 +9,7 @@ final class BeerEngine {
     private(set) var currentStyle: BeerStyle = .lager
     private(set) var uniforms = BeerUniforms()
 
-    private var fillController = FillController()
+    private var fillController = FillController(level: 0)
     private let gravityFilter = GravityFilter()
     private var slosh = SloshModel()
     private var wobble = WobbleModel()
@@ -18,7 +18,11 @@ final class BeerEngine {
     private let motionLock = NSLock()
     private var latestMotion: (gravity: GravityVector, rate: SIMD3<Double>)?
     private var syntheticGravity: SIMD2<Double>?
-    private var refilling = false
+    private var opening = true      // launch: pour from black up to default
+    private var refilling = false   // swipe up: pour back to default
+
+    /// The pour target: half a glass, and only that far.
+    private static let defaultLevel = 0.5
 
     private var clock: Double = 0
 
@@ -59,13 +63,21 @@ final class BeerEngine {
         let amplitude = max(wobble.amplitude, slosh.waveEnergy * 0.06)
 
         // Tilt-drink: rolling the glass left/right past ~30° drains it — the
-        // further sideways, the faster. Pitch (push/pull) does nothing;
-        // swipe up refills. Tilting also cancels an in-progress pour (you
-        // tipped the glass while the tap was running).
+        // further sideways, the faster. Pitch (push/pull) does nothing.
+        // Tilting also cancels any pour (you tipped the glass while the tap
+        // was running). The opening pour and the swipe-up refill both stop
+        // at the default half-glass level.
         let rollSeverity = max(0, abs(smoothed.direction.x) - 0.5) / 0.5
         if rollSeverity > 0 {
             fillController.drain(dt: dt, severity: min(rollSeverity, 1))
             refilling = false
+            opening = false
+        } else if opening {
+            fillController.pour(dt: dt, ceiling: Self.defaultLevel)
+            if fillController.level >= Self.defaultLevel { opening = false }
+        } else if refilling {
+            fillController.pour(dt: dt, ceiling: Self.defaultLevel)
+            if fillController.level >= Self.defaultLevel { refilling = false }
         }
         if refilling {
             fillController.pour(dt: dt)
