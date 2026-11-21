@@ -184,6 +184,30 @@ serving.)
 - Icons are generated from `tools/icon.html` via `tools/gen-icons.sh`
   (includes a maskable variant for Android).
 
+## Native app without Xcode (CI builds the .ipa)
+
+No Mac with Xcode? GitHub's macOS runners build the native app for you.
+Pushing to `main` (or a manual **workflow_dispatch**) runs
+`.github/workflows/build-native-ipa.yml`, which archives the app unsigned and
+publishes it as the **`aibeer-unsigned-ipa`** artifact on the run page.
+
+Sign and install it from any Windows/Linux/macOS PC with
+[Sideloadly](https://sideloadly.io) (free, uses a regular Apple ID):
+
+1. Download `aibeer-unsigned-ipa` from the workflow run's **Artifacts**
+   section and unzip
+2. Install [Sideloadly](https://sideloadly.io) + Apple's iTunes/iCloud
+   (from apple.com, for the USB drivers)
+3. Plug in the iPhone (trust the computer), drag the `.ipa` into Sideloadly,
+   enter your Apple ID (with 2FA use an
+   [app-specific password](https://appleid.apple.com)), **Start**
+4. On the iPhone: **Settings → General → VPN & Device Management** → trust
+   your Apple ID → launch aiBeer — native, real gyro, no status bar
+
+Free-Apple-ID rules apply: the build expires after **7 days** (re-sideload to
+renew), max 3 side-loaded apps per device. [AltStore](https://altstore.io) is
+an alternative that can re-sign wirelessly.
+
 ## Building the iOS app (on a Mac)
 
 ### Free: run it on your own iPhone (no Apple Developer Program)

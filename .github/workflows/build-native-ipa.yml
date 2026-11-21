@@ -1,0 +1,63 @@
+# Builds the NATIVE iOS app as an unsigned .ipa on a GitHub macOS runner —
+# no local Mac/Xcode required. Download the artifact from the run page and
+# sign + install it on an iPhone with Sideloadly (Windows/macOS/Linux) or
+# AltStore, using a free Apple ID.
+#
+# The .ipa is UNSIGNED: CODE_SIGNING_ALLOWED=NO. Sideloadly applies a free
+# personal certificate at install time (7-day expiry, 3-app cap — Apple's
+# free-tier rules, same as Xcode free provisioning).
+name: build-native-ipa
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "aibeer/**"
+      - "BeerCore/**"
+      - "shaders/**"
+      - "project.yml"
+      - ".github/workflows/build-native-ipa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-ipa:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate Xcode project
+        run: brew install xcodegen && xcodegen generate
+
+      - name: Build unsigned archive
+        run: |
+          xcodebuild \
+            -project aibeer.xcodeproj \
+            -scheme aibeer \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath build/aibeer.xcarchive \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Package unsigned .ipa
+        run: |
+          cd build
+          mkdir Payload
+          cp -R aibeer.xcarchive/Products/Applications/aibeer.app Payload/
+          zip -qry aibeer-unsigned.ipa Payload
+
+      - name: Verify archive contents
+        run: |
+          test -d build/aibeer.xcarchive/Products/Applications/aibeer.app
+          test -f build/aibeer.xcarchive/Products/Applications/aibeer.app/beer-liquid.fsh
+          unzip -l build/aibeer-unsigned.ipa | grep "Payload/aibeer.app/aibeer"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aibeer-unsigned-ipa
+          path: build/aibeer-unsigned.ipa
+          retention-days: 14
