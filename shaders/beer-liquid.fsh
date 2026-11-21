@@ -153,9 +153,16 @@ void main() {
         vec3 transmit = exp(-sigma * (depth / 0.55));
         vec3 beer;
         if (u_rainbow > 0.5) {
-            // h(4.0) * 0.25 = 1.0 cycle/minute — integer, wraps seamlessly.
-            vec3 pal = rainbowPalette(depth * 0.35 - h(4.0, tm) * 0.25);
-            beer = pal * transmit + u_glowColor * 0.20 * (1.0 - transmit);
+            // Vivid, animated rainbow: saturated color bands sweep through
+            // the liquid (depth + lateral position + time), much livelier
+            // than the gentle single-hue cycle of the base styles.
+            float bands = depth * 0.5 + p.x * 0.4 - h(3.0, tm);
+            vec3 pal = rainbowPalette(bands);
+            pal = pal * pal * (3.0 - 2.0 * pal);   // deepen saturation
+            // Mild, near-neutral extinction keeps every hue visible deep in
+            // the glass instead of collapsing into one dominant color.
+            vec3 transmit = exp(-vec3(0.50, 0.45, 0.40) * (depth / 0.55));
+            beer = pal * (0.55 + 0.45 * transmit) + u_glowColor * 0.15 * (1.0 - transmit);
         } else {
             beer = u_bodyTop * transmit + u_glowColor * 0.30 * (1.0 - transmit);
         }
@@ -196,6 +203,10 @@ void main() {
         float dots = (1.0 - smoothstep(0.02, 0.30, cells)) * 0.16
                    + (1.0 - smoothstep(0.02, 0.30, fine)) * 0.08;
         vec3 foamCol = u_foamColor * (1.0 - dots);
+        if (u_rainbow > 0.5) {
+            // Faint iridescent shimmer riding the white foam.
+            foamCol *= mix(vec3(1.0), 0.85 + 0.35 * rainbowPalette(fn * 2.0 + h(1.0, tm)), 0.45);
+        }
         foamCol *= 0.96 + 0.04 * vnoise(p * 90.0 + vec2(6.0 * tm, 0.0));
         col = mix(col, foamCol, foamBand);
     }

@@ -153,8 +153,16 @@ fragment float4 beerFragment(RasterData in [[stage_in]],
         float3 transmit = exp(-sigma * (depth / 0.55));
         float3 beer;
         if (u.rainbow > 0.5) {
-            float3 pal = rainbowPalette(depth * 0.35 - h(4.0, tm) * 0.25);
-            beer = pal * transmit + u.glowColor * 0.20 * (1.0 - transmit);
+            // Vivid, animated rainbow: saturated color bands sweep through
+            // the liquid (depth + lateral position + time), much livelier
+            // than the gentle single-hue cycle of the base styles.
+            float bands = depth * 0.5 + p.x * 0.4 - h(3.0, tm);
+            float3 pal = rainbowPalette(bands);
+            pal = pal * pal * (3.0 - 2.0 * pal);   // deepen saturation
+            // Mild, near-neutral extinction keeps every hue visible deep in
+            // the glass instead of collapsing into one dominant color.
+            float3 transmit = exp(-float3(0.50, 0.45, 0.40) * (depth / 0.55));
+            beer = pal * (0.55 + 0.45 * transmit) + u.glowColor * 0.15 * (1.0 - transmit);
         } else {
             beer = u.bodyTop * transmit + u.glowColor * 0.30 * (1.0 - transmit);
         }
@@ -190,6 +198,10 @@ fragment float4 beerFragment(RasterData in [[stage_in]],
         float dots = (1.0 - smoothstep(0.02, 0.30, cells)) * 0.16
                    + (1.0 - smoothstep(0.02, 0.30, fine)) * 0.08;
         float3 foamCol = u.foamColor * (1.0 - dots);
+        if (u.rainbow > 0.5) {
+            // Faint iridescent shimmer riding the white foam.
+            foamCol *= mix(float3(1.0), 0.85 + 0.35 * rainbowPalette(fn * 2.0 + h(1.0, tm)), 0.45);
+        }
         foamCol *= 0.96 + 0.04 * vnoise(p * 90.0 + float2(6.0 * tm, 0.0));
         col = mix(col, foamCol, foamBand);
     }
