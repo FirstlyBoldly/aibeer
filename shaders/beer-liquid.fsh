@@ -17,7 +17,7 @@
 //     mediump mobile GPUs (no ever-growing sin() arguments). Two invariants:
 //     — sin()/cos() terms use INTEGER cycles per minute (h(n) helpers).
 //     — lattice-noise offsets (vnoise/worley) use INTEGER CELLS per minute:
-//       those functions are periodic per lattice cell, so e.g. "6.0 * g_tm",
+//       those functions are periodic per lattice cell, so e.g. "6.0 * tm",
 //       never a 2π-scaled h() — otherwise the pattern jumps at every wrap.
 
 uniform vec2  u_gravity;       // unit direction of world-down on screen
@@ -39,7 +39,6 @@ uniform float u_bubbleSize;    // bubble radius, screen units
 uniform float u_bubbleSpeed;
 uniform float u_rainbow;       // 1.0 = rainbow mode
 
-float g_tm;                    // time in minutes (seamless at the 60 s wrap)
 
 float hash21(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -72,26 +71,28 @@ float worley(vec2 p) {
 }
 
 // Integer harmonic of the 60 s base period: n cycles per minute.
-float h(float n) {
-    return 6.2831853 * n * g_tm;
+// tm is passed explicitly (no shader globals — SKShader's GLSL->Metal
+// translation is picky about them).
+float h(float n, float tm) {
+    return 6.2831853 * n * tm;
 }
 
 vec3 rainbowPalette(float t) {
     return 0.5 + 0.5 * cos(6.2831853 * (t + vec3(0.0, 0.33, 0.67)));
 }
 
-vec3 addBubbles(vec3 col, vec2 p, float depth, vec2 rise) {
+vec3 addBubbles(vec3 col, vec2 p, float depth, vec2 rise, float tm) {
     for (int layer = 0; layer < 3; layer++) {
         float fl = float(layer);
         float scale = 9.0 + fl * 5.0;
         // Integer cells-per-minute scroll → seamless at the clock wrap.
         float cells = floor(u_bubbleSpeed * 300.0 * (0.55 + 0.35 * fl));
-        vec2 q = p * scale + rise * (cells * g_tm);
+        vec2 q = p * scale + rise * (cells * tm);
         // Pseudo-acceleration: shear the field by depth (bubbles move faster
         // as they approach the surface).
         q += rise * (0.9 * (1.0 - smoothstep(0.0, 0.7, depth)));
         // Lazy lateral sway.
-        q.x += 0.022 * sin(h(66.0 + fl * 42.0) + p.y * 7.0);
+        q.x += 0.022 * sin(h(66.0 + fl * 42.0, tm) + p.y * 7.0);
         vec2 id = floor(q);
         vec2 f = fract(q) - 0.5;
         float rnd = hash21(id + fl * 17.31);
@@ -116,7 +117,7 @@ vec3 addBubbles(vec3 col, vec2 p, float depth, vec2 rise) {
 }
 
 void main() {
-    g_tm = u_clock * 0.016666667;
+    float tm = u_clock * 0.016666667;
     vec2 uv = gl_FragCoord.xy / u_spriteSize;
     vec2 p = (uv - 0.5) * vec2(u_spriteSize.x / u_spriteSize.y, 1.0);
 
@@ -130,10 +131,10 @@ void main() {
     // Drifting choppy waves, pumped by u_wobble; all harmonics are integer
     // cycles per minute.
     float wav = 0.0;
-    wav += sin(p.x * 16.0 + h(30.0)) * 0.50;
-    wav += sin(p.y * 12.0 - h(22.0)) * 0.32;
-    wav += sin((p.x - p.y) * 26.0 + h(54.0)) * 0.22;
-    wav += sin((p.x + p.y) * 33.0 - h(75.0)) * 0.14;
+    wav += sin(p.x * 16.0 + h(30.0, tm)) * 0.50;
+    wav += sin(p.y * 12.0 - h(22.0, tm)) * 0.32;
+    wav += sin((p.x - p.y) * 26.0 + h(54.0, tm)) * 0.22;
+    wav += sin((p.x + p.y) * 33.0 - h(75.0, tm)) * 0.14;
     wav *= u_wobble;
     // Crest steepening: rounded troughs, sharper crests.
     wav = wav / (1.0 + 2.5 * abs(wav));
@@ -153,7 +154,7 @@ void main() {
         vec3 beer;
         if (u_rainbow > 0.5) {
             // h(4.0) * 0.25 = 1.0 cycle/minute — integer, wraps seamlessly.
-            vec3 pal = rainbowPalette(depth * 0.35 - h(4.0) * 0.25);
+            vec3 pal = rainbowPalette(depth * 0.35 - h(4.0, tm) * 0.25);
             beer = pal * transmit + u_glowColor * 0.20 * (1.0 - transmit);
         } else {
             beer = u_bodyTop * transmit + u_glowColor * 0.30 * (1.0 - transmit);
@@ -161,10 +162,10 @@ void main() {
         // Backlit glow far from the surface (light panel behind the glass).
         beer += u_glowColor * smoothstep(0.35, 0.9, depth) * u_glowStrength * u_translucency * 0.5;
         // Gentle shimmer: two drifting octaves.
-        beer *= 1.0 + 0.045 * sin(p.x * 30.0 + h(19.0)) * sin(p.y * 24.0 - h(13.0));
+        beer *= 1.0 + 0.045 * sin(p.x * 30.0 + h(19.0, tm)) * sin(p.y * 24.0 - h(13.0, tm));
         // Fresnel-ish brightening at grazing wall angles.
         beer *= 1.0 + 0.30 * wall * wall * wall;
-        beer = addBubbles(beer, p, depth, rise);
+        beer = addBubbles(beer, p, depth, rise, tm);
         // Meniscus: bright crease where liquid meets the glass wall.
         float men = smoothstep(0.0, 0.02, depth) * (1.0 - smoothstep(0.02, 0.09, depth));
         beer += vec3(0.85, 0.9, 1.0) * men * wall * 0.30;
@@ -184,18 +185,18 @@ void main() {
     // Sloshing whips up extra foam; the band edge is chunky and irregular.
     // Lattice-noise offsets are integer CELLS per minute (see header) —
     // seamless at the clock wrap.
-    float fn = vnoise(p * 24.0 + vec2(0.0, 18.0 * g_tm));
+    float fn = vnoise(p * 24.0 + vec2(0.0, 18.0 * tm));
     float foamThick = u_foamThick * (0.70 + 0.6 * fn) * (1.0 + min(u_wobble * 9.0, 0.8)) + abs(wav);
     float foamBand = smoothstep(-foamThick, -foamThick * 0.35, depth) * (1.0 - smoothstep(0.0, 0.012, depth));
     if (u_fill > 0.003) {
         // Dense white foam: a bright matrix with subtle darker bubble dots.
         // Drift in whole cells per minute (seamless at wrap).
-        float cells = worley(p * 62.0 + vec2(0.0, 7.0 * g_tm));
-        float fine = worley(p * 100.0 + vec2(6.0 * g_tm, 0.0));
+        float cells = worley(p * 62.0 + vec2(0.0, 7.0 * tm));
+        float fine = worley(p * 100.0 + vec2(6.0 * tm, 0.0));
         float dots = (1.0 - smoothstep(0.02, 0.30, cells)) * 0.16
                    + (1.0 - smoothstep(0.02, 0.30, fine)) * 0.08;
         vec3 foamCol = u_foamColor * (1.0 - dots);
-        foamCol *= 0.96 + 0.04 * vnoise(p * 90.0 + vec2(6.0 * g_tm, 0.0));
+        foamCol *= 0.96 + 0.04 * vnoise(p * 90.0 + vec2(6.0 * tm, 0.0));
         col = mix(col, foamCol, foamBand);
     }
 

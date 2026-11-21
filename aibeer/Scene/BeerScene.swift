@@ -28,6 +28,11 @@ final class BeerScene: SKScene {
     override func didMove(to view: SKView) {
         backgroundColor = SKColor(red: 0.02, green: 0.024, blue: 0.035, alpha: 1)
 
+        // The scene may be created with size .zero (SwiftUI SpriteView);
+        // adopt the view's bounds so the liquid sprite is never 1x1 px.
+        if size.width == 0 || size.height == 0 {
+            size = view.bounds.size
+        }
         liquid.size = size
         liquid.zPosition = 0
         liquid.shader = makeShader()

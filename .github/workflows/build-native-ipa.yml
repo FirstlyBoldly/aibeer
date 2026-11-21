@@ -68,3 +68,51 @@ jobs:
           name: aibeer-unsigned-ipa
           path: build/aibeer-unsigned.ipa
           retention-days: 14
+
+  # Visual smoke test: launch the app in an iOS Simulator and publish a
+  # screenshot. A black screenshot = rendering failure (e.g. SKShader
+  # transpile problem on Metal); beer = rendering pipeline healthy.
+  simulate:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate Xcode project
+        run: brew install xcodegen && xcodegen generate
+
+      - name: Find an available iPhone simulator
+        id: sim
+        run: |
+          DEVICE=$(xcrun simctl list devices available | grep -m1 -oE 'iPhone [^ (]*' | head -1)
+          echo "Using simulator: $DEVICE"
+          echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
+
+      - name: Build for simulator
+        run: |
+          xcodebuild \
+            -project aibeer.xcodeproj \
+            -scheme aibeer \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.device }}" \
+            -derivedDataPath simdd \
+            build CODE_SIGNING_ALLOWED=NO 2>&1 | tee simbuild.log
+
+      - name: Boot, install, launch, screenshot
+        run: |
+          xcrun simctl boot "${{ steps.sim.outputs.device }}" 2>/dev/null || true
+          xcrun simctl install booted simdd/Build/Products/Debug-iphonesimulator/aibeer.app
+          xcrun simctl launch booted dev.aibeer.app
+          sleep 6
+          xcrun simctl io booted screenshot sim-shot.png
+
+      - name: Show compile errors (runs only on failure)
+        if: failure()
+        run: |
+          grep -E "error:" simbuild.log | sort -u | head -40 \
+            || echo "no explicit 'error:' lines — see full simbuild.log above"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sim-screenshot
+          path: sim-shot.png
+          retention-days: 14
