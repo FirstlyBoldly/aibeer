@@ -31,14 +31,17 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Swift (BeerCore tests + style preset dump)
-        uses: swift-actions/setup-swift@v2
+        uses: swift-actions/setup-swift@v3
         with:
-          swift-version: "6.3"
+          # Quoted (YAML float gotcha). Minor-only pins resolve to the .0
+          # patch: "6.3" → 6.3.0. Latest release is 6.4.3 (matches the local
+          # WSL2 toolchain); every 6.x release has Ubuntu 24.04 builds.
+          swift-version: "6.4.3"
 
       - name: Test BeerCore and dump style presets
         shell: bash   # adds -o pipefail so a failing swift test fails the step
