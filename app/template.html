@@ -47,8 +47,8 @@ const STYLES = __STYLES_JSON__;
   // World-down in the device frame: (sin γ·cos β, −sin β, −cos γ·cos β).
   // We project onto the screen plane and rotate by the UI orientation angle,
   // mirroring BeerCore's unit-tested GravityProjector. The provider returns
-  // [x, y, tiltOff] where tiltOff = |g.z| drives the tilt-drain mechanic.
-  let gyroDir = null;         // [x, y, tiltOff], null until attached
+  // [x, y]; the LEFT–RIGHT tilt component (x) drives the drain mechanic.
+  let gyroDir = null;         // [x, y], null until attached
   let lastDir = [0, -1];      // held when the phone lies flat (degenerate)
   function onOrientation(e) {
     if (e.beta == null) return;
@@ -67,7 +67,7 @@ const STYLES = __STYLES_JSON__;
     }
     const len = Math.hypot(dx, dy);
     if (len > 0.05) lastDir = [dx / len, dy / len];   // degenerate when flat → hold
-    gyroDir = [lastDir[0], lastDir[1], Math.abs(Math.cos(g) * Math.cos(b))];
+    gyroDir = [lastDir[0], lastDir[1]];
   }
 
   function attachGyro() {

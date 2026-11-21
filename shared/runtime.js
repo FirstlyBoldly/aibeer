@@ -225,12 +225,14 @@ function createAibeer(opts) {
     const amplitude = Math.max(0.004, wobble * Math.exp(-dt / 0.6), sloshEnergy() * 0.06);
     wobble = amplitude;
 
-    // Tilt-drink: past ~33° from vertical the beer drains, faster the
-    // further the glass is tipped. Swipe up refills.
-    const tilt = live && live.length > 2 ? live[2] : 0;
-    const tiltSeverity = Math.max(0, tilt - 0.55) / 0.45;
-    if (tiltSeverity > 0) {
-      fill = Math.max(0, fill - DRAIN_RATE * (0.4 + 0.6 * Math.min(tiltSeverity, 1)) * dt);
+    // Tilt-drink: rolling the glass left/right past ~30° drains it — the
+    // further sideways, the faster. Pitch (push/pull) does nothing; swipe
+    // up refills. Tilting also cancels an in-progress pour (you tipped the
+    // glass while the tap was running).
+    const rollSeverity = Math.max(0, Math.abs(targetDir[0]) - 0.5) / 0.5;
+    if (rollSeverity > 0) {
+      fill = Math.max(0, fill - DRAIN_RATE * (0.4 + 0.6 * Math.min(rollSeverity, 1)) * dt);
+      refilling = false;
     }
     if (refilling) {
       fill = Math.min(1, fill + FILL_RATE * dt);
@@ -288,7 +290,7 @@ function createAibeer(opts) {
       }
     },
     get state() {
-      return { fill, style, sloshDir: slosh.dir, gravity: lastTargetDir };
+      return { fill, style, sloshDir: slosh.dir, gravity: lastTargetDir, refilling };
     }
   };
 }

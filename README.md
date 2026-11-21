@@ -2,9 +2,9 @@
 
 An iBeer-style beer-drinking trick for the iPhone: the screen fills with beer,
 and the gyroscope makes the liquid stay level with the real world. **Tilt the
-phone to drink** — the further you tip, the faster it drains — and **swipe up
-to refill**. Swipe left or right to change your drink. Four modes: Pale Lager,
-Brown Ale, Black Stout, and a just-for-fun Rainbow.
+phone left or right to drink** — the further sideways, the faster it drains —
+and **swipe up to refill**. Swipe left or right to change your drink. Four
+modes: Pale Lager, Brown Ale, Black Stout, and a just-for-fun Rainbow.
 
 Native iOS app: **Swift + SwiftUI + SpriteKit (`SKShader`) + CoreMotion**, with
 the liquid rendered by a single GLSL ES fragment shader. The simulation logic

@@ -58,11 +58,14 @@ final class BeerEngine {
         wobble.decay(dt: dt)
         let amplitude = max(wobble.amplitude, slosh.waveEnergy * 0.06)
 
-        // Tilt-drink: past ~33° from vertical the beer drains, faster the
-        // further the glass is tipped. Swipe up refills.
-        let tiltSeverity = max(0, smoothed.tiltOffScreen - 0.55) / 0.45
-        if tiltSeverity > 0 {
-            fillController.drain(dt: dt, severity: min(tiltSeverity, 1))
+        // Tilt-drink: rolling the glass left/right past ~30° drains it — the
+        // further sideways, the faster. Pitch (push/pull) does nothing;
+        // swipe up refills. Tilting also cancels an in-progress pour (you
+        // tipped the glass while the tap was running).
+        let rollSeverity = max(0, abs(smoothed.direction.x) - 0.5) / 0.5
+        if rollSeverity > 0 {
+            fillController.drain(dt: dt, severity: min(rollSeverity, 1))
+            refilling = false
         }
         if refilling {
             fillController.pour(dt: dt)
