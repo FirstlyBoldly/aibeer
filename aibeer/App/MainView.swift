@@ -1,17 +1,11 @@
-import SpriteKit
 import SwiftUI
 
-/// Full-screen beer view: the SpriteKit scene owns everything, including the
-/// swipe gesture that changes the drink.
+/// Full-screen beer view: direct Metal rendering (no SpriteKit).
 struct MainView: View {
-    @State private var scene: BeerScene = {
-        let scene = BeerScene()
-        scene.scaleMode = .resizeFill
-        return scene
-    }()
+    @State private var engine = BeerEngine()
 
     var body: some View {
-        SpriteView(scene: scene)
+        MetalBeerView(engine: engine)
             .ignoresSafeArea()
             .statusBarHidden(true)
             .onAppear {

@@ -17,8 +17,6 @@ targets:
     platform: iOS
     sources:
       - path: aibeer
-      - path: shaders
-        buildPhase: resources
     dependencies:
       - package: BeerCore
     info:
