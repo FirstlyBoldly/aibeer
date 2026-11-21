@@ -21,6 +21,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: write   # delete stale run artifacts (re-run safety, below)
 
 concurrency:
   group: pages
@@ -75,6 +76,20 @@ jobs:
 
       - name: Build web app (inline shader + styles + runtime)
         run: node tools/embed.mjs
+
+      # deploy-pages requires exactly ONE artifact named "github-pages".
+      # Re-running a partially-failed run would otherwise upload a second one
+      # and fail with "Multiple artifacts named github-pages".
+      - name: Remove stale github-pages artifacts (re-run safety)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ids=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+            --jq '.artifacts[] | select(.name == "github-pages") | .id' || true)
+          for id in $ids; do
+            echo "deleting stale artifact $id"
+            gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id"
+          done
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
