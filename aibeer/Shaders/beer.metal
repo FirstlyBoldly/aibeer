@@ -188,9 +188,15 @@ fragment float4 beerFragment(RasterData in [[stage_in]],
     }
 
     // ---- foam ----
+    // THICK head with a crisp, lumpy edge — the foam ends abruptly where the
+    // lumps end; no misty fade ("steam"). Sloshing whips up extra foam.
+    // Lattice-noise offsets are integer CELLS per minute (see header) —
+    // seamless at the clock wrap.
     float fn = vnoise(p * 24.0 + float2(0.0, 18.0 * tm));
-    float foamThick = u.foamThick * (0.70 + 0.6 * fn) * (1.0 + min(u.wobble * 9.0, 0.8)) + abs(wav);
-    float foamBand = smoothstep(-foamThick, -foamThick * 0.35, depth) * (1.0 - smoothstep(0.0, 0.012, depth));
+    float lumps = 0.5 * fn + 0.5 * vnoise(p * 9.0 + float2(0.0, 5.0 * tm));
+    float foamThick = u.foamThick * (0.55 + 0.9 * lumps) * (1.0 + min(u.wobble * 9.0, 0.8)) + abs(wav);
+    float topEdge = -foamThick;
+    float foamBand = smoothstep(topEdge, topEdge + 0.012, depth) * (1.0 - smoothstep(0.0, 0.012, depth));
     if (u.fill > 0.003) {
         // Dense white foam: bright matrix with subtle darker bubble dots.
         float cells = worley(p * 62.0 + float2(0.0, 7.0 * tm));
@@ -198,10 +204,6 @@ fragment float4 beerFragment(RasterData in [[stage_in]],
         float dots = (1.0 - smoothstep(0.02, 0.30, cells)) * 0.16
                    + (1.0 - smoothstep(0.02, 0.30, fine)) * 0.08;
         float3 foamCol = u.foamColor * (1.0 - dots);
-        if (u.rainbow > 0.5) {
-            // Faint iridescent shimmer riding the white foam.
-            foamCol *= mix(float3(1.0), 0.85 + 0.35 * rainbowPalette(fn * 2.0 + h(1.0, tm)), 0.45);
-        }
         foamCol *= 0.96 + 0.04 * vnoise(p * 90.0 + float2(6.0 * tm, 0.0));
         col = mix(col, foamCol, foamBand);
     }
