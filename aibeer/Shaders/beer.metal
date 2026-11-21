@@ -195,10 +195,14 @@ fragment float4 beerFragment(RasterData in [[stage_in]],
     // CELLS per minute (see header) — seamless at the clock wrap.
     float along = dot(p, float2(-surf.y, surf.x));   // position along the surface
     float across = s - hgt;                          // signed distance, waves excluded
-    // Edge shape: low-frequency traveling undulation only.
-    float edgeNoise = vnoise(float2(along * 5.0 + 2.0 * tm, 0.0));
-    float foamWave = sin(along * 10.0 - h(4.0, tm)) * u.foamThick * u.wobble * 8.0;
-    float foamThick = u.foamThick * (0.82 + 0.40 * edgeNoise + foamWave) * (1.0 + min(u.wobble * 9.0, 0.8)) + abs(wav);
+    // Edge shape: low-frequency traveling undulation plus a TIME-STATIC fine
+    // lump component (a static shape cannot jitter when tilting). The foam
+    // gets only a small fraction of the slosh energy — the head stays
+    // composed while the liquid beneath it sloshes.
+    float edgeNoise = 0.55 * vnoise(float2(along * 5.0 + 2.0 * tm, 0.0))
+                    + 0.45 * vnoise(float2(along * 24.0, across * 60.0));
+    float foamWave = sin(along * 10.0 - h(4.0, tm)) * u.foamThick * u.wobble * 3.0;
+    float foamThick = u.foamThick * (0.82 + 0.40 * edgeNoise + foamWave) * (1.0 + min(u.wobble * 9.0, 0.8) * 0.25);
     float topEdge = -foamThick;
     float foamBand = smoothstep(topEdge, topEdge + 0.012, depth) * (1.0 - smoothstep(0.0, 0.012, depth));
     if (u.fill > 0.003) {
